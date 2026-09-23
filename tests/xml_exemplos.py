@@ -6,17 +6,23 @@ CLIENTE = "33333333000133"
 TRANSPORTADORA = "44444444000144"
 
 
-def _item(n, cfop, v_prod, icms, v_ipi=0.0, cst_pis="01", v_st=0.0, v_frete=0.0, codigo=None, q=10):
+def _item(n, cfop, v_prod, icms, v_ipi=0.0, cst_pis="01", v_st=0.0, v_frete=0.0, codigo=None, q=10,
+          p_red=0.0, p_icms=18, difal=None):
     ipi = (f"<IPI><cEnq>999</cEnq><IPITrib><CST>50</CST><vBC>{v_prod}</vBC><pIPI>5</pIPI>"
            f"<vIPI>{v_ipi:.2f}</vIPI></IPITrib></IPI>") if v_ipi else ""
     frete = f"<vFrete>{v_frete:.2f}</vFrete>" if v_frete else ""
+    grupo, cst = ("ICMS20", "20") if p_red else ("ICMS00", "00")
+    red = f"<pRedBC>{p_red:.2f}</pRedBC>" if p_red else ""
+    uf_dest = ("<ICMSUFDest><vBCUFDest>{0:.2f}</vBCUFDest><pICMSUFDest>{2:.2f}</pICMSUFDest><pICMSInter>{3:.2f}</pICMSInter>"
+               "<vFCPUFDest>{1:.2f}</vFCPUFDest><vICMSUFDest>{4:.2f}</vICMSUFDest><vICMSUFRemet>0.00</vICMSUFRemet></ICMSUFDest>"
+               .format(v_prod, difal[1], difal[2], difal[3], difal[0])) if difal else ""
     return f"""
     <det nItem="{n}">
       <prod><cProd>{codigo or f"P{n}"}</cProd><xProd>Produto {n}</xProd><NCM>48201000</NCM><CFOP>{cfop}</CFOP>
         <qCom>{q}</qCom><vProd>{v_prod:.2f}</vProd>{frete}</prod>
       <imposto>
-        <ICMS><ICMS00><orig>0</orig><CST>00</CST><vBC>{v_prod:.2f}</vBC><pICMS>18</pICMS>
-          <vICMS>{icms:.2f}</vICMS><vICMSST>{v_st:.2f}</vICMSST></ICMS00></ICMS>
+        <ICMS><{grupo}><orig>0</orig><CST>{cst}</CST>{red}<vBC>{v_prod:.2f}</vBC><pICMS>{p_icms}</pICMS>
+          <vICMS>{icms:.2f}</vICMS><vICMSST>{v_st:.2f}</vICMSST></{grupo}></ICMS>{uf_dest}
         {ipi}
         <PIS><PISAliq><CST>{cst_pis}</CST><vBC>{v_prod}</vBC><pPIS>1.65</pPIS><vPIS>0</vPIS></PISAliq></PIS>
         <COFINS><COFINSAliq><CST>{cst_pis}</CST><vBC>{v_prod}</vBC><pCOFINS>7.6</pCOFINS><vCOFINS>0</vCOFINS></COFINSAliq></COFINS>
@@ -24,7 +30,7 @@ def _item(n, cfop, v_prod, icms, v_ipi=0.0, cst_pis="01", v_st=0.0, v_frete=0.0,
     </det>"""
 
 
-def nfe(chave, emit, dest, itens, tp_nf="1", data="2026-08-10", fin="1", total=0.0, intermediador="", ref=""):
+def nfe(chave, emit, dest, itens, tp_nf="1", data="2026-08-10", fin="1", total=0.0, intermediador="", ref="", uf_dest="SP"):
     intermed = f"<infIntermed><CNPJ>{intermediador}</CNPJ><idCadIntTran>loja</idCadIntTran></infIntermed>" if intermediador else ""
     nfref = f"<NFref><refNFe>{ref}</refNFe></NFref>" if ref else ""
     return f"""<?xml version="1.0" encoding="UTF-8"?>
@@ -33,7 +39,7 @@ def nfe(chave, emit, dest, itens, tp_nf="1", data="2026-08-10", fin="1", total=0
     <ide><cUF>35</cUF><natOp>Venda</natOp><mod>55</mod><serie>1</serie><nNF>{chave[-6:]}</nNF>
       <dhEmi>{data}T10:00:00-03:00</dhEmi><tpNF>{tp_nf}</tpNF><finNFe>{fin}</finNFe>{nfref}</ide>
     <emit><CNPJ>{emit}</CNPJ><xNome>Emitente {emit[:4]}</xNome><enderEmit><UF>SP</UF></enderEmit><CRT>3</CRT></emit>
-    <dest><CNPJ>{dest}</CNPJ><xNome>Destinatario {dest[:4]}</xNome><enderDest><UF>SP</UF></enderDest></dest>
+    <dest><CNPJ>{dest}</CNPJ><xNome>Destinatario {dest[:4]}</xNome><enderDest><UF>{uf_dest}</UF></enderDest></dest>
     {''.join(itens)}
     <total><ICMSTot><vNF>{total:.2f}</vNF></ICMSTot></total>
     {intermed}

@@ -88,6 +88,15 @@ def test_html_completo(tmp_path):
         assert _valor(page, "#kFat") == pytest.approx(2000)
         assert _valor(page, "#kFrete") == pytest.approx(78.75)
         assert _valor(page, "#kCred") == pytest.approx(21.25)
+        cred = page.inner_text("#dashCred")
+        assert "CT-e (fretes)" in cred and "Devoluções de venda" in cred
+
+        page.click("text=CT-e e Créditos")
+        assert _valor(page, "#cteIcms") == pytest.approx(12)
+        assert _valor(page, "#ctePis") == pytest.approx(1.65)
+        assert _valor(page, "#cteCof") == pytest.approx(7.6)
+        assert "Ago/26" in page.inner_text("#cteMes")
+        page.click("text=Dashboard")
 
         page.click("text=Rentabilidade por Produto")
         assert _valor(page, "#rRes") == pytest.approx(590.64 - 78.75, abs=0.01)
@@ -106,14 +115,89 @@ def test_html_completo(tmp_path):
         apur = page.evaluate("window._apur.linhas.filter(l=>l[0].startsWith('ICMS — A recolher'))[0][1]")
         assert apur[6] == pytest.approx(0) and apur[7] == pytest.approx(360 - 72 - 12 - 180)
 
-        page.click("text=Compras Mensais")
+        page.click("text=NF de Venda")
+        assert page.inner_text("#vdN") == "1"
+        assert _valor(page, "#vdV") == pytest.approx(2000)
+        assert _valor(page, "#vdD") == pytest.approx(400)
+        assert "Devolução" in page.inner_text("#vdBody")
+        page.click("#vdBody tr.nf >> nth=0")
+        assert "P1 — Produto 1" in page.inner_text("#vdBody")
+        page.select_option("#vdTipo", "Venda")
+        assert "Devolução" not in page.inner_text("#vdBody")
+        page.fill("#vdBusca", "nao-existe")
+        assert "Nenhuma NF de venda" in page.inner_text("#vdBody")
+        page.fill("#vdBusca", "")
+
+        page.click("text=NF de Compra")
         page.select_option("#month", "2026-07")
         assert _valor(page, "#cpC") == pytest.approx(180 + 820 * 0.0925)
+        assert _valor(page, "#cpIcms") == pytest.approx(180)
+        assert _valor(page, "#cpPis") == pytest.approx(820 * 0.0165)
+        assert _valor(page, "#cpCof") == pytest.approx(820 * 0.076)
+        assert _valor(page, "#cpBase") == pytest.approx(820)
+        mes = page.inner_text("#cpMes")
+        assert "Jul/26" in mes and "Total no ano" in mes
+        page.click("#cpBody tr.nf >> nth=0")
+        assert "FORN-9" in page.inner_text("#cpBody")
+        assert "Total (1 notas)" in page.inner_text("#cpBody")
 
         # recarregar: dados persistem no IndexedDB
         page.reload()
         page.wait_for_function("window.document.querySelector('#month').options.length>0")
         page.select_option("#month", "2026-08")
         assert _valor(page, "#kFat") == pytest.approx(2000)
+        assert erros == []
+        browser.close()
+
+
+def test_html_reducao_base_e_difal(tmp_path):
+    compra = nfe("35260822222222000122550010000000091000000091", FORNECEDOR, EMPRESA,
+                 [_item(1, "5102", 10000.0, 880.0, codigo="MAQ-F", q=5, p_red=26.67, p_icms=12)], data="2026-08-02")
+    venda = nfe("35260811111111000111550010000000081000000081", EMPRESA, CLIENTE,
+                [_item(1, "6108", 3000.0, 264.0, codigo="EXA4", q=1, p_red=26.67, p_icms=12,
+                       difal=(246.0, 60.0, 20.5, 12.0))], uf_dest="BA", intermediador=ML)
+    caminho = tmp_path / "reducao.zip"
+    with zipfile.ZipFile(caminho, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("compra.xml", compra)
+        zf.writestr("venda.xml", venda)
+    chromium = glob.glob("/opt/pw-browsers/chromium*/chrome-linux*/chrome")
+    with sync_api.sync_playwright() as p:
+        browser = p.chromium.launch(executable_path=chromium[0] if chromium else None)
+        page = browser.new_page()
+        erros = []
+        page.on("pageerror", lambda e: erros.append(str(e)))
+        page.on("dialog", lambda d: d.accept())
+        page.goto("file://" + HTML)
+        page.wait_for_function("window.document.querySelector('#month').options.length>0")
+        page.click("text=Importações")
+        page.set_input_files("#files", str(caminho))
+        page.click("#registerImport")
+        page.wait_for_selector("text=Importação concluída.")
+        page.select_option("#month", "2026-08")
+
+        page.click("text=NF de Venda")
+        uf = page.inner_text("#vdUf").replace("\xa0", " ")
+        assert "BA" in uf and "R$ 246,00" in uf and "R$ 60,00" in uf and "R$ 306,00" in uf
+        page.click("#vdBody tr.nf >> nth=0")
+        detalhe = page.inner_text("#vdBody")
+        assert "redução da base 26,67%" in detalhe and "carga efetiva 8,8%" in detalhe
+        assert "interna 20,5% − interestadual 12%" in detalhe
+
+        page.click("text=NF de Compra")
+        assert _valor(page, "#cpIcms") == pytest.approx(880)
+        assert _valor(page, "#cpBase") == pytest.approx(10000 - 880)
+
+        page.click("text=Auditoria")
+        audit = page.inner_text("#auditText")
+        assert "Itens com redução da base de ICMS (CST 20/70): 2" in audit and "8,8%" in audit
+
+        page.click("text=Produtos e Custos")
+        page.fill("#purchase", "100")
+        page.fill("#icmspct", "12")
+        page.fill("#icmsred", "26.67")
+        assert page.input_value("#icmscarga").startswith("8,79")
+        page.click("#calcCred")
+        assert float(page.input_value("#icmscred")) == pytest.approx(8.80, abs=0.01)
+        assert float(page.input_value("#piscred")) == pytest.approx((100 - 8.7996) * 0.0165, abs=0.01)
         assert erros == []
         browser.close()
