@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, Float, Date, Boolean
+from sqlalchemy import create_engine, Column, Integer, String, Float, Date, Boolean, Text, ForeignKey
 from sqlalchemy.orm import declarative_base, sessionmaker
 from datetime import date
 
@@ -70,5 +70,71 @@ class CompraSimulada(Base):
     cmv_normal = Column(Float, default=0)
     cmf_kemmax = Column(Float, default=0)
     custo_caixa = Column(Float, default=0)
+
+class ConfigFiscalDB(Base):
+    __tablename__ = "config_fiscal"
+    id = Column(Integer, primary_key=True)
+    cnpjs = Column(String, default="")
+    aliq_pis = Column(Float, default=0.0165)
+    aliq_cofins = Column(Float, default=0.076)
+    excluir_icms_base_debito = Column(Boolean, default=True)
+    excluir_icms_base_credito = Column(Boolean, default=True)
+    incluir_ipi_credito = Column(Boolean, default=True)
+    incluir_st_credito = Column(Boolean, default=False)
+
+class DocumentoFiscal(Base):
+    __tablename__ = "documentos_fiscais"
+    id = Column(Integer, primary_key=True)
+    chave = Column(String, unique=True, index=True)
+    tipo_documento = Column(String)
+    numero = Column(String)
+    data_emissao = Column(Date)
+    emitente = Column(String)
+    destinatario = Column(String)
+    valor_total = Column(Float, default=0)
+    arquivo = Column(String)
+    xml = Column(Text)
+
+class LancamentoFiscal(Base):
+    __tablename__ = "lancamentos_fiscais"
+    id = Column(Integer, primary_key=True)
+    documento_id = Column(Integer, ForeignKey("documentos_fiscais.id", ondelete="CASCADE"), index=True)
+    chave = Column(String, index=True)
+    tipo_documento = Column(String)
+    numero = Column(String)
+    data = Column(Date, index=True)
+    direcao = Column(String)
+    participante = Column(String)
+    n_item = Column(Integer)
+    descricao = Column(String)
+    cfop = Column(String)
+    natureza = Column(String)
+    valor_contabil = Column(Float, default=0)
+    receita = Column(Float, default=0)
+    base_icms = Column(Float, default=0)
+    icms_debito = Column(Float, default=0)
+    icms_credito = Column(Float, default=0)
+    icms_st = Column(Float, default=0)
+    ipi = Column(Float, default=0)
+    difal = Column(Float, default=0)
+    base_pis_cofins = Column(Float, default=0)
+    pis_debito = Column(Float, default=0)
+    cofins_debito = Column(Float, default=0)
+    pis_credito = Column(Float, default=0)
+    cofins_credito = Column(Float, default=0)
+    custo = Column(Float, default=0)
+    observacao = Column(String)
+
+class CreditoExtra(Base):
+    """Créditos fora dos XMLs: energia, aluguel, armazenagem (FULL), depreciação, CIAP..."""
+    __tablename__ = "creditos_extras"
+    id = Column(Integer, primary_key=True)
+    data = Column(Date)
+    categoria = Column(String)
+    descricao = Column(String)
+    base_pis_cofins = Column(Float, default=0)
+    pis_credito = Column(Float, default=0)
+    cofins_credito = Column(Float, default=0)
+    icms_credito = Column(Float, default=0)
 
 Base.metadata.create_all(bind=engine)

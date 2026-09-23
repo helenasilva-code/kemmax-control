@@ -5,6 +5,7 @@ from datetime import date, timedelta
 
 from database import SessionLocal, Produto, Fornecedor, ContaPagar, ContaReceber, CompraSimulada
 from seed import seed_data
+from fiscal_pages import pagina_importar, pagina_creditos, pagina_apuracao, pagina_dre_fiscal
 from calculations import (
     brl, pct, cmv_normal, cmf_kemmax, resultado_marketplace,
     ponto_equilibrio, cobertura_dias, compra_sugerida
@@ -38,6 +39,10 @@ menu = st.sidebar.radio(
         "Financeiro",
         "Fluxo de Caixa",
         "DRE",
+        "Fiscal: Importar XML",
+        "Fiscal: Créditos",
+        "Fiscal: Apuração",
+        "Fiscal: DRE Lucro Real",
         "Capital de Giro",
         "Produtos",
         "Fornecedores",
@@ -269,6 +274,18 @@ elif menu == "DRE":
         {"Linha": "Lucro operacional CMF", "Valor": lucro_operacional_cmf},
     ])
     st.dataframe(dre, use_container_width=True)
+
+elif menu == "Fiscal: Importar XML":
+    pagina_importar(db)
+
+elif menu == "Fiscal: Créditos":
+    pagina_creditos(db)
+
+elif menu == "Fiscal: Apuração":
+    pagina_apuracao(db)
+
+elif menu == "Fiscal: DRE Lucro Real":
+    pagina_dre_fiscal(db)
 
 elif menu == "Capital de Giro":
     st.markdown('<div class="main-title">Capital de Giro</div>', unsafe_allow_html=True)
