@@ -122,6 +122,10 @@ def ler_nfe(root):
     emit = _find(inf, "emit")
     dest = _find(inf, "dest")
     total = _find(inf, "total", "ICMSTot")
+    # Venda por marketplace: CNPJ do intermediador (obrigatório desde 2021)
+    intermed = _find(inf, "infIntermed")
+    # Devolução: chave da NF-e original
+    refs = [_text(r) for r in ide.iter() if _local(r.tag) == "refNFe"] if ide is not None else []
 
     itens = []
     for det in (c for c in inf if _local(c.tag) == "det"):
@@ -170,6 +174,8 @@ def ler_nfe(root):
         "destinatario_nome": _text(dest, "xNome"),
         "destinatario_uf": _text(dest, "enderDest", "UF"),
         "valor_total": _num(total, "vNF"),
+        "intermediador_doc": _text(intermed, "CNPJ") if intermed is not None else "",
+        "chave_ref": refs[0] if refs else "",
         "itens": itens,
     }
 

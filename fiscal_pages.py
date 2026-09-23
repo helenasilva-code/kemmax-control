@@ -10,7 +10,7 @@ from database import CreditoExtra, backup_banco, restaurar_banco
 from fiscal_apuracao import (
     carregar_config, salvar_config, importar_documentos, cnpjs_candidatos, apagar_dados_fiscais, reprocessar, excluir_documentos,
     lancamentos_df, documentos_df, creditos_extras_df, apurar, apuracao_df,
-    resumo_por_natureza, resumo_mensal, dre_lucro_real, exportar_excel,
+    resumo_por_natureza, resumo_mensal, exportar_excel,
 )
 from fiscal_rules import ConfigFiscal
 from fiscal_xml import ler_arquivos, somente_digitos
@@ -313,58 +313,3 @@ def pagina_apuracao(db):
     with st.expander("Ver todos os lançamentos do período"):
         if not lanc.empty:
             _exibir_lancamentos(lanc)
-
-
-# ---------------------------------------------------------------- DRE
-
-def pagina_dre_fiscal(db):
-    _titulo("DRE Lucro Real", "Montada a partir das NF-e e CT-e importados, com IRPJ e CSLL")
-    inicio, fim = _periodo("dre")
-    meses = max(1, (fim.year - inicio.year) * 12 + fim.month - inicio.month + 1)
-    lanc = lancamentos_df(db, inicio, fim)
-    extras = creditos_extras_df(db, inicio, fim)
-
-    with st.expander("Estoques e despesas do período", expanded=True):
-        c1, c2 = st.columns(2)
-        estoque_inicial = c1.number_input("Estoque inicial (custo líquido)", min_value=0.0, step=1000.0)
-        estoque_final = c2.number_input("Estoque final (custo líquido)", min_value=0.0, step=1000.0)
-        c3, c4, c5 = st.columns(3)
-        comissoes = c3.number_input("Comissões / tarifas marketplace", min_value=0.0, step=100.0)
-        ads = c4.number_input("ADS / Publicidade", min_value=0.0, step=100.0)
-        embalagens = c5.number_input("Embalagens", min_value=0.0, step=100.0)
-        c6, c7, c8 = st.columns(3)
-        pessoal = c6.number_input("Pessoal e pró-labore", min_value=0.0, step=100.0)
-        fixas = c7.number_input("Outras despesas fixas", min_value=0.0, step=100.0)
-        servicos = c8.number_input("Serviços operacionais", min_value=0.0, step=100.0)
-        c9, c10 = st.columns(2)
-        rec_fin = c9.number_input("Receitas financeiras", min_value=0.0, step=100.0)
-        desp_fin = c10.number_input("Despesas financeiras (juros, tarifas)", min_value=0.0, step=100.0)
-
-    with st.expander("Ajustes do LALUR"):
-        c1, c2, c3 = st.columns(3)
-        adicoes = c1.number_input("Adições", min_value=0.0, step=100.0)
-        exclusoes = c2.number_input("Exclusões", min_value=0.0, step=100.0)
-        prejuizo = c3.number_input("Prejuízo fiscal a compensar", min_value=0.0, step=100.0)
-
-    despesas = {
-        "Comissões / tarifas marketplace": comissoes, "ADS / Publicidade": ads, "Embalagens": embalagens,
-        "Pessoal e pró-labore": pessoal, "Outras despesas fixas": fixas, "Serviços operacionais": servicos,
-    }
-    tabela, ind = dre_lucro_real(lanc, extras, meses, estoque_inicial, estoque_final, despesas,
-                                 rec_fin, desp_fin, adicoes, exclusoes, prejuizo)
-
-    k1, k2, k3, k4 = st.columns(4)
-    k1.metric("Receita bruta", brl(ind["receita_bruta"]))
-    k2.metric("Receita líquida", brl(ind["receita_liquida"]))
-    k3.metric("Lucro bruto", brl(ind["lucro_bruto"]))
-    k4.metric("Lucro líquido", brl(ind["lucro_liquido"]))
-
-    exibicao = tabela.copy()
-    exibicao["% Receita líquida"] = exibicao["% Receita líquida"].map(lambda v: f"{v * 100:.2f}%".replace(".", ","))
-    exibicao["Valor"] = exibicao["Valor"].map(brl)
-    st.dataframe(exibicao, width="stretch", hide_index=True)
-    st.caption(f"Período de {meses} mês(es): adicional de IRPJ sobre o que exceder {brl(20000 * meses)}. "
-               "Estimativa gerencial - confirme com a contabilidade antes de recolher.")
-
-    st.download_button("Baixar DRE em Excel", exportar_excel({"DRE": tabela}),
-                       file_name=f"dre_{inicio:%Y%m%d}_{fim:%Y%m%d}.xlsx")

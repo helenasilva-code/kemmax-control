@@ -7,7 +7,7 @@ from sqlalchemy.orm import sessionmaker
 
 from database import Base
 from fiscal_apuracao import (
-    cnpjs_candidatos, apagar_dados_fiscais, apurar, dre_lucro_real, exportar_excel, importar_documentos, lancamentos_df,
+    cnpjs_candidatos, apagar_dados_fiscais, apurar, importar_documentos, lancamentos_df,
     creditos_extras_df, reprocessar, salvar_config, carregar_config,
 )
 from fiscal_rules import ConfigFiscal, cfop_entrada, classificar
@@ -167,7 +167,7 @@ def test_ler_arquivos_zip():
     assert [nome for nome, _ in erros] == ["ruim.xml"]
 
 
-def test_importacao_apuracao_e_dre(db):
+def test_importacao_e_apuracao(db):
     salvar_config(db, CFG)
     cfg = carregar_config(db)
     docs, _ = ler_arquivos([(f"{i}.xml", x.encode()) for i, x in enumerate(
@@ -185,30 +185,10 @@ def test_importacao_apuracao_e_dre(db):
     pis_creditos = 870 * 0.0165 + 410 * 0.0165 + 1.65 + 1.65
     assert res["PIS"]["creditos_documentos"] == pytest.approx(pis_creditos)
 
-    tabela, ind = dre_lucro_real(lanc, extras, despesas={"ADS": 100.0})
-    assert ind["receita_bruta"] == pytest.approx(2000.0)
-    receita_liquida = 2000 - 500 - (360 - 90) - (1640 - 410) * (0.0165 + 0.076)
-    assert ind["receita_liquida"] == pytest.approx(receita_liquida)
-    cmv = (1050 - 180 - 870 * 0.0925) + (100 - 12 - 9.25)
-    assert ind["cmv"] == pytest.approx(cmv)
-    assert ind["lair"] == pytest.approx(receita_liquida - cmv - (100 - 12 - 9.25) - 100.0)
-    assert ind["csll"] == pytest.approx(ind["lair"] * 0.09)
-    assert exportar_excel({"DRE": tabela})[:2] == b"PK"
-
     # Mudar a configuração e reprocessar recalcula os créditos a partir do XML salvo
     assert reprocessar(db, ConfigFiscal(cnpjs=[EMPRESA], excluir_icms_base_credito=False)) == []
     compra = lancamentos_df(db).query("natureza == 'Compra para revenda'").iloc[0]
     assert compra["base_pis_cofins"] == pytest.approx(1050.0)
-
-
-def test_irpj_adicional():
-    import pandas as pd
-    from fiscal_apuracao import CAMPOS_LANCAMENTO
-    vazio = pd.DataFrame(columns=CAMPOS_LANCAMENTO)
-    extras = pd.DataFrame(columns=["pis_credito", "cofins_credito", "icms_credito"])
-    _, ind = dre_lucro_real(vazio, extras, meses=1, receitas_financeiras=100000.0)
-    base = 100000 * (1 - 0.0465)
-    assert ind["irpj"] == pytest.approx(base * 0.15 + (base - 20000) * 0.10)
 
 
 def evento_cancelamento(chave):

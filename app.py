@@ -6,7 +6,10 @@ from datetime import date, timedelta
 from database import SessionLocal, Produto, Fornecedor, ContaPagar, ContaReceber, CompraSimulada
 from seed import seed_data
 from auth import exigir_login, botao_sair
-from fiscal_pages import pagina_importar, pagina_creditos, pagina_apuracao, pagina_dre_fiscal
+from fiscal_pages import pagina_importar, pagina_creditos, pagina_apuracao
+from resultado_pages import (
+    pagina_resumo_mensal, pagina_lucro_produto, pagina_custos_produtos, pagina_marketplaces, pagina_despesas,
+)
 from calculations import (
     brl, pct, cmv_normal, cmf_kemmax, resultado_marketplace,
     ponto_equilibrio, cobertura_dias, compra_sugerida
@@ -34,26 +37,38 @@ st.markdown(
 )
 
 st.sidebar.title("Kemmax Control")
-menu = st.sidebar.radio(
-    "Menu",
-    [
-        "Dashboard",
-        "Financeiro",
-        "Fluxo de Caixa",
-        "DRE",
-        "Fiscal: Importar XML",
-        "Fiscal: Créditos",
-        "Fiscal: Apuração",
-        "Fiscal: DRE Lucro Real",
-        "Capital de Giro",
-        "Produtos",
-        "Fornecedores",
-        "Compras Inteligentes",
-        "Precificação",
-        "Estoque e FULL",
-        "Posso Comprar?"
-    ]
-)
+area = st.sidebar.radio("Área", ["Fiscal e Resultados", "Gestão"], horizontal=True)
+if area == "Fiscal e Resultados":
+    menu = st.sidebar.radio(
+        "Menu",
+        [
+            "Resumo Mensal",
+            "Importar XML",
+            "Lucro por Produto",
+            "Custos dos Produtos",
+            "Marketplaces",
+            "Despesas Mensais",
+            "Créditos (detalhe)",
+            "Apuração (período)",
+        ]
+    )
+else:
+    menu = st.sidebar.radio(
+        "Menu",
+        [
+            "Dashboard",
+            "Financeiro",
+            "Fluxo de Caixa",
+            "DRE",
+            "Capital de Giro",
+            "Produtos",
+            "Fornecedores",
+            "Compras Inteligentes",
+            "Precificação",
+            "Estoque e FULL",
+            "Posso Comprar?"
+        ]
+    )
 botao_sair()
 
 def contas_pagar_df():
@@ -278,17 +293,29 @@ elif menu == "DRE":
     ])
     st.dataframe(dre, use_container_width=True)
 
-elif menu == "Fiscal: Importar XML":
+elif menu == "Resumo Mensal":
+    pagina_resumo_mensal(db)
+
+elif menu == "Importar XML":
     pagina_importar(db)
 
-elif menu == "Fiscal: Créditos":
+elif menu == "Lucro por Produto":
+    pagina_lucro_produto(db)
+
+elif menu == "Custos dos Produtos":
+    pagina_custos_produtos(db)
+
+elif menu == "Marketplaces":
+    pagina_marketplaces(db)
+
+elif menu == "Despesas Mensais":
+    pagina_despesas(db)
+
+elif menu == "Créditos (detalhe)":
     pagina_creditos(db)
 
-elif menu == "Fiscal: Apuração":
+elif menu == "Apuração (período)":
     pagina_apuracao(db)
-
-elif menu == "Fiscal: DRE Lucro Real":
-    pagina_dre_fiscal(db)
 
 elif menu == "Capital de Giro":
     st.markdown('<div class="main-title">Capital de Giro</div>', unsafe_allow_html=True)

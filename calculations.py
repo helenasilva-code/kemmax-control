@@ -4,7 +4,10 @@ PIS_COFINS = PIS + COFINS
 
 def brl(valor):
     try:
-        return f"R$ {float(valor):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        valor = float(valor)
+        if abs(valor) < 0.005:
+            valor = 0.0  # evita "R$ -0,00"
+        return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
     except Exception:
         return "R$ 0,00"
 

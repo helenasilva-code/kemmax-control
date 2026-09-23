@@ -15,8 +15,8 @@ CAMPOS_VALOR = [
 ]
 
 CAMPOS_LANCAMENTO = [
-    "chave", "tipo_documento", "numero", "data", "direcao", "participante", "n_item",
-    "descricao", "cfop", "natureza", "observacao", *CAMPOS_VALOR,
+    "chave", "tipo_documento", "numero", "data", "direcao", "participante", "intermediador", "chave_ref",
+    "n_item", "codigo", "quantidade", "descricao", "cfop", "natureza", "observacao", *CAMPOS_VALOR,
 ]
 
 # Alíquotas do IRPJ/CSLL no Lucro Real
@@ -27,7 +27,6 @@ CSLL = 0.09
 # PIS/COFINS sobre receitas financeiras (Decreto 8.426/2015)
 PIS_FINANCEIRO = 0.0065
 COFINS_FINANCEIRO = 0.04
-LIMITE_COMPENSACAO_PREJUIZO = 0.30
 
 
 # ---------------------------------------------------------------- configuração
@@ -281,100 +280,6 @@ def resumo_mensal(lanc, extras):
     if not partes:
         return pd.DataFrame(columns=["mes", *colunas])
     return pd.concat(partes).groupby(level=0).sum().reset_index()
-
-
-# ---------------------------------------------------------------- DRE
-
-def dre_lucro_real(lanc, extras, meses=1, estoque_inicial=0.0, estoque_final=0.0,
-                   despesas=None, receitas_financeiras=0.0, despesas_financeiras=0.0,
-                   adicoes=0.0, exclusoes=0.0, prejuizo_compensar=0.0):
-    """Monta a DRE do período a partir dos lançamentos fiscais.
-
-    despesas: dict {nome: valor} com despesas operacionais digitadas (comissões, ADS, etc.).
-    Estoques a custo líquido de impostos recuperáveis. Com estoques zerados o CMV
-    é igual às compras líquidas do período.
-    """
-    despesas = despesas or {}
-    vendas = lanc[lanc["natureza"] == "Venda"] if not lanc.empty else lanc
-    devolucoes = lanc[lanc["natureza"] == "Devolução de venda"] if not lanc.empty else lanc
-    compras = lanc[lanc["natureza"].isin(["Compra para revenda", "Compra para industrialização",
-                                          "Frete sobre compras", "Devolução de compra"])] if not lanc.empty else lanc
-    frete_vendas = lanc[lanc["natureza"] == "Frete sobre vendas"] if not lanc.empty else lanc
-
-    receita_bruta = _soma(vendas, "receita")
-    devolucao = -_soma(devolucoes, "receita")
-    # Na devolução de venda os créditos anulam os débitos da venda
-    icms = _soma(vendas, "icms_debito") - _soma(devolucoes, "icms_credito")
-    difal = _soma(vendas, "difal")
-    pis = _soma(vendas, "pis_debito") - _soma(devolucoes, "pis_credito")
-    cofins = _soma(vendas, "cofins_debito") - _soma(devolucoes, "cofins_credito")
-    receita_liquida = receita_bruta - devolucao - icms - difal - pis - cofins
-
-    compras_liquidas = _soma(compras, "custo")
-    cmv = estoque_inicial + compras_liquidas - estoque_final
-    lucro_bruto = receita_liquida - cmv
-
-    frete_venda_liquido = (_soma(frete_vendas, "valor_contabil") - _soma(frete_vendas, "icms_credito")
-                           - _soma(frete_vendas, "pis_credito") - _soma(frete_vendas, "cofins_credito"))
-    # Créditos extras de PIS/COFINS (energia, aluguel, armazenagem...) reduzem a despesa
-    creditos_extras = _soma(extras, "pis_credito") + _soma(extras, "cofins_credito") + _soma(extras, "icms_credito")
-    total_despesas = frete_venda_liquido + sum(despesas.values()) - creditos_extras
-
-    pis_cofins_financeiro = receitas_financeiras * (PIS_FINANCEIRO + COFINS_FINANCEIRO)
-    resultado_financeiro = receitas_financeiras - pis_cofins_financeiro - despesas_financeiras
-
-    lair = lucro_bruto - total_despesas + resultado_financeiro
-
-    lucro_ajustado = lair + adicoes - exclusoes
-    compensacao = 0.0
-    if lucro_ajustado > 0:
-        compensacao = min(prejuizo_compensar, lucro_ajustado * LIMITE_COMPENSACAO_PREJUIZO)
-    base_ir = max(lucro_ajustado - compensacao, 0.0)
-    csll = base_ir * CSLL
-    irpj = base_ir * IRPJ + max(base_ir - IRPJ_LIMITE_ADICIONAL_MES * meses, 0.0) * IRPJ_ADICIONAL
-    lucro_liquido = lair - csll - irpj
-
-    linhas = [
-        ("Receita bruta de vendas", receita_bruta),
-        ("(-) Devoluções de vendas", -devolucao),
-        ("(-) ICMS sobre vendas", -icms),
-        ("(-) DIFAL / FCP", -difal),
-        ("(-) PIS", -pis),
-        ("(-) COFINS", -cofins),
-        ("= Receita líquida", receita_liquida),
-        ("(+) Estoque inicial", estoque_inicial),
-        ("(+) Compras líquidas de créditos (inclui frete de compra)", compras_liquidas),
-        ("(-) Estoque final", -estoque_final),
-        ("(-) CMV", -cmv),
-        ("= Lucro bruto", lucro_bruto),
-        ("(-) Fretes sobre vendas (CT-e, líquido de créditos)", -frete_venda_liquido),
-        *[(f"(-) {nome}", -valor) for nome, valor in despesas.items()],
-        ("(+) Créditos extras de PIS/COFINS/ICMS", creditos_extras),
-        ("(+) Receitas financeiras", receitas_financeiras),
-        ("(-) PIS/COFINS sobre receitas financeiras", -pis_cofins_financeiro),
-        ("(-) Despesas financeiras", -despesas_financeiras),
-        ("= Lucro antes do IR e CSLL (LAIR)", lair),
-        ("(+) Adições (LALUR)", adicoes),
-        ("(-) Exclusões (LALUR)", -exclusoes),
-        ("(-) Compensação de prejuízo fiscal (limite 30%)", -compensacao),
-        ("= Lucro real (base IRPJ/CSLL)", base_ir),
-        ("(-) CSLL 9%", -csll),
-        ("(-) IRPJ 15% + adicional 10%", -irpj),
-        ("= Lucro líquido", lucro_liquido),
-    ]
-    tabela = pd.DataFrame(linhas, columns=["Linha", "Valor"])
-    tabela["% Receita líquida"] = tabela["Valor"] / receita_liquida if receita_liquida else 0.0
-    indicadores = {
-        "receita_bruta": receita_bruta,
-        "receita_liquida": receita_liquida,
-        "cmv": cmv,
-        "lucro_bruto": lucro_bruto,
-        "lair": lair,
-        "irpj": irpj,
-        "csll": csll,
-        "lucro_liquido": lucro_liquido,
-    }
-    return tabela, indicadores
 
 
 # ---------------------------------------------------------------- exportação

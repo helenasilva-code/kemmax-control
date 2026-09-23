@@ -27,6 +27,14 @@ class Produto(Base):
     venda_media_dia = Column(Float, default=0)
     lead_time_dias = Column(Float, default=20)
     estoque_seguranca_dias = Column(Float, default=15)
+    # Composição do custo unitário (tela Custos dos Produtos).
+    # cmv_normal = CMV DRE (só a NF, líquido de créditos); cmf_kemmax = CMV Financeiro (NF + por fora)
+    valor_nf = Column(Float, default=0)
+    ipi_pct = Column(Float, default=0)
+    icms_pct = Column(Float, default=0)
+    valor_por_fora = Column(Float, default=0)
+    frete_unit = Column(Float, default=0)
+    embalagem_unit = Column(Float, default=0)
 
 class Fornecedor(Base):
     __tablename__ = "fornecedores"
@@ -109,7 +117,11 @@ class LancamentoFiscal(Base):
     data = Column(Date, index=True)
     direcao = Column(String)
     participante = Column(String)
+    intermediador = Column(String, default="")
+    chave_ref = Column(String, default="")
     n_item = Column(Integer)
+    codigo = Column(String, default="", index=True)
+    quantidade = Column(Float, default=0)
     descricao = Column(String)
     cfop = Column(String)
     natureza = Column(String)
@@ -137,6 +149,27 @@ class NotaCancelada(Base):
     data_evento = Column(Date)
     arquivo = Column(String)
 
+class Marketplace(Base):
+    __tablename__ = "marketplaces"
+    id = Column(Integer, primary_key=True)
+    nome = Column(String, unique=True)
+    cnpj_intermediador = Column(String, default="")
+    comissao_pct = Column(Float, default=0)
+    taxa_fixa = Column(Float, default=0)          # por unidade vendida
+    frete_medio = Column(Float, default=0)        # por unidade vendida (frete pago ao marketplace)
+
+class DespesaMensal(Base):
+    __tablename__ = "despesas_mensais"
+    id = Column(Integer, primary_key=True)
+    mes = Column(String, unique=True)             # AAAA-MM
+    ads = Column(Float, default=0)
+    pessoal = Column(Float, default=0)
+    despesas_fixas = Column(Float, default=0)
+    servicos = Column(Float, default=0)
+    outras = Column(Float, default=0)
+    receitas_financeiras = Column(Float, default=0)
+    despesas_financeiras = Column(Float, default=0)
+
 class CreditoExtra(Base):
     """Créditos fora dos XMLs: energia, aluguel, armazenagem (FULL), depreciação, CIAP..."""
     __tablename__ = "creditos_extras"
@@ -149,7 +182,26 @@ class CreditoExtra(Base):
     cofins_credito = Column(Float, default=0)
     icms_credito = Column(Float, default=0)
 
-Base.metadata.create_all(bind=engine)
+def migrar():
+    """Cria tabelas e acrescenta colunas novas em bancos de versões anteriores."""
+    from sqlalchemy import inspect, text
+    Base.metadata.create_all(bind=engine)
+    inspetor = inspect(engine)
+    with engine.begin() as conn:
+        for tabela in Base.metadata.sorted_tables:
+            existentes = {c["name"] for c in inspetor.get_columns(tabela.name)}
+            for coluna in tabela.columns:
+                if coluna.name in existentes:
+                    continue
+                ddl = f"ALTER TABLE {tabela.name} ADD COLUMN {coluna.name} {coluna.type.compile(engine.dialect)}"
+                padrao = coluna.default.arg if coluna.default is not None else None
+                if isinstance(padrao, (bool, int, float)):
+                    ddl += f" DEFAULT {int(padrao) if isinstance(padrao, bool) else padrao}"
+                elif isinstance(padrao, str):
+                    ddl += f" DEFAULT '{padrao}'"
+                conn.execute(text(ddl))
+
+migrar()
 
 
 def backup_banco():
@@ -189,5 +241,5 @@ def restaurar_banco(conteudo):
             origem.backup(destino)
         origem.close()
         destino.close()
-    # Backups antigos podem não ter as tabelas novas
-    Base.metadata.create_all(bind=engine)
+    # Backups antigos podem não ter as tabelas/colunas novas
+    migrar()
