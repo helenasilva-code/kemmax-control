@@ -1,0 +1,37 @@
+KEMMAX CONTROL - COMO USAR
+==========================
+
+O sistema roda no seu computador. Os XMLs e os dados ficam so na sua maquina.
+
+1) INSTALAR O PYTHON (so na primeira vez)
+   - Baixe em https://www.python.org/downloads/ (versao 3.11 ou mais nova).
+   - No Windows, na primeira tela do instalador, MARQUE "Add python.exe to PATH".
+
+2) ABRIR O SISTEMA
+   - Windows: de dois cliques em  iniciar_windows.bat
+   - Mac/Linux: rode  ./iniciar_mac_linux.sh  no terminal
+   - Na primeira vez ele instala o necessario (alguns minutos, precisa de internet).
+   - O navegador abre em http://localhost:8501
+   - Para fechar o sistema, feche a janela preta.
+
+3) PRIMEIRO USO (menu "Fiscal e Resultados")
+   a. Importar XML: envie os .zip de todos os meses -> "Ler arquivos"
+      -> confirme o CNPJ da empresa -> "Confirmar CNPJ e gravar".
+   b. Marketplaces: confira comissao %, taxa fixa e frete de cada canal -> Salvar.
+   c. Custos dos Produtos: preencha valor na NF, IPI %, ICMS %, valor pago por fora,
+      frete e embalagem de cada SKU -> Salvar custos.
+      (Em "Lucro por Produto" ha um botao para cadastrar os SKUs vendidos que faltam.)
+   d. Despesas Mensais: ADS, pessoal, despesas fixas etc. de cada mes -> Salvar.
+
+4) RESULTADOS
+   - Resumo Mensal: DRE, compras, vendas, CT-e, creditos e apuracao mes a mes.
+     Botao "Baixar tudo em Excel".
+   - Lucro por Produto: lucro ou prejuizo por SKU e por marketplace.
+
+5) BACKUP
+   - Todos os dados ficam no arquivo kemmax_control.db, nesta pasta.
+   - Importar XML -> aba Backup -> "Baixar backup do banco". Faca com frequencia.
+   - Ao instalar uma versao nova do sistema, copie o kemmax_control.db para a pasta nova.
+
+Os valores de impostos, IRPJ e CSLL sao estimativas gerenciais:
+confirme com a contabilidade antes de recolher.
