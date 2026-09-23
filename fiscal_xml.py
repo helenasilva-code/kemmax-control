@@ -248,12 +248,43 @@ def ler_cte(root):
 
 # ---------------------------------------------------------------- entrada
 
+# Cancelamento de NF-e/CT-e e cancelamento por substituição (NFC-e)
+EVENTOS_CANCELAMENTO = {"110111", "110112"}
+
+
+def ler_evento(root):
+    inf = _find_any(root, "infEvento")
+    chave = _text(inf, "chNFe") or _text(inf, "chCTe")
+    tp_evento = _text(inf, "tpEvento")
+    return {
+        "tipo_documento": "Evento",
+        "chave": chave,
+        "tp_evento": tp_evento,
+        "cancelamento": tp_evento in EVENTOS_CANCELAMENTO,
+        "data_emissao": _data(_text(inf, "dhEvento")),
+    }
+
+
+def _decodificar(conteudo):
+    """bytes -> str respeitando o encoding declarado (há XMLs em ISO-8859-1)."""
+    if isinstance(conteudo, str):
+        return conteudo
+    conteudo = conteudo.lstrip(b"\xef\xbb\xbf")
+    declaracao = re.match(rb'<\?xml[^>]*encoding=["\']([\w\-]+)["\']', conteudo)
+    encoding = declaracao.group(1).decode() if declaracao else "utf-8"
+    try:
+        return conteudo.decode(encoding)
+    except (LookupError, UnicodeDecodeError):
+        return conteudo.decode("latin-1")
+
+
 def ler_xml(conteudo):
     """Identifica o tipo do XML e devolve o documento lido."""
-    if isinstance(conteudo, str):
-        conteudo = conteudo.encode("utf-8")
+    texto = _decodificar(conteudo).lstrip("\ufeff")
+    # Sem a declaração o ElementTree aceita str independente do encoding original
+    texto = re.sub(r"^\s*<\?xml[^>]*\?>", "", texto)
     try:
-        root = ET.fromstring(conteudo)
+        root = ET.fromstring(texto)
     except ET.ParseError as exc:
         raise XMLFiscalErro(f"XML inválido: {exc}") from exc
 
@@ -262,13 +293,18 @@ def ler_xml(conteudo):
         return ler_cte(root)
     if _find_any(root, "infNFe") is not None:
         return ler_nfe(root)
-    raise XMLFiscalErro("XML não é NF-e nem CT-e (eventos e resumos são ignorados).")
+    if _find_any(root, "infEvento") is not None:
+        return ler_evento(root)
+    if _local(root.tag) in ("resNFe", "resEvento"):
+        raise XMLFiscalErro("Resumo de NF-e: baixe o XML completo da nota.")
+    raise XMLFiscalErro("XML não é NF-e, CT-e nem evento.")
 
 
 def ler_arquivos(arquivos):
-    """Recebe lista de (nome, bytes). Aceita .xml e .zip com XMLs dentro.
+    """Recebe lista de (nome, bytes). Aceita .xml e .zip (inclusive com pastas e zips dentro).
 
     Devolve (documentos, erros) onde erros é lista de (nome, mensagem).
+    Eventos de cancelamento vêm em documentos com tipo_documento == "Evento".
     """
     documentos, erros = [], []
     for nome, conteudo in arquivos:
@@ -276,7 +312,7 @@ def ler_arquivos(arquivos):
             try:
                 with zipfile.ZipFile(io.BytesIO(conteudo)) as zf:
                     internos = [(f"{nome}/{n}", zf.read(n)) for n in zf.namelist()
-                                if n.lower().endswith((".xml", ".zip"))]
+                                if n.lower().endswith((".xml", ".zip")) and not n.startswith("__MACOSX/")]
             except zipfile.BadZipFile:
                 erros.append((nome, "ZIP inválido."))
                 continue
@@ -286,9 +322,12 @@ def ler_arquivos(arquivos):
             continue
         try:
             doc = ler_xml(conteudo)
-            doc["arquivo"] = nome
-            doc["xml"] = conteudo.decode("utf-8", errors="replace") if isinstance(conteudo, bytes) else conteudo
-            documentos.append(doc)
         except XMLFiscalErro as exc:
             erros.append((nome, str(exc)))
+            continue
+        if doc["tipo_documento"] == "Evento" and not doc["cancelamento"]:
+            continue  # carta de correção, ciência da operação etc. não alteram valores
+        doc["arquivo"] = nome
+        doc["xml"] = _decodificar(conteudo)
+        documentos.append(doc)
     return documentos, erros

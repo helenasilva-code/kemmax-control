@@ -24,7 +24,9 @@ Sistema web inicial para gestão da Kemmax.
 Menus **Fiscal: Importar XML**, **Fiscal: Créditos**, **Fiscal: Apuração** e **Fiscal: DRE Lucro Real**.
 
 1. Em *Fiscal: Importar XML → Configuração*, cadastre o(s) CNPJ(s) da empresa.
-2. Envie os XMLs (NF-e de compra e venda, CT-e) soltos ou em `.zip`. Chaves repetidas são ignoradas.
+2. Envie os XMLs (NF-e de compra e venda, CT-e, eventos de cancelamento) soltos ou em `.zip`
+   (pode ter pastas e zips dentro, XML em UTF-8 ou ISO-8859-1). Chaves repetidas são ignoradas e notas
+   canceladas saem da apuração. Se o CNPJ ainda não foi cadastrado, o sistema sugere o que mais aparece nos XMLs.
 3. O sistema identifica entrada/saída pelo CNPJ, converte o CFOP do fornecedor (5102 → 1102)
    e calcula por item:
    - **Compras para revenda/industrialização**: crédito do ICMS destacado (não credita em compra com ST,
@@ -51,6 +53,36 @@ pip install pytest
 python -m pytest tests
 ```
 
+## Usar no seu computador (sistema fechado - recomendado para os XMLs)
+
+Os XMLs e o banco de dados ficam só no seu computador; nada vai para o GitHub nem para a internet.
+
+1. Instale o Python 3.11 ou mais novo em https://www.python.org/downloads/
+   (no Windows, marque **"Add python.exe to PATH"** na instalação).
+2. No GitHub, clique em **Code → Download ZIP** e descompacte numa pasta (ex.: `Documentos\KemmaxControl`).
+3. Dê dois cliques em **`iniciar_windows.bat`** (Windows) ou rode `./iniciar_mac_linux.sh` (Mac/Linux).
+   Na primeira vez ele instala o que precisa (alguns minutos); depois abre direto no navegador em
+   http://localhost:8501. O sistema só aceita acesso deste computador.
+4. Menu **Fiscal: Importar XML** → envie o `.zip` baixado do Google Drive → **Ler arquivos** →
+   confirme o CNPJ da empresa sugerido → **Gravar**.
+5. Veja **Fiscal: Créditos**, **Fiscal: Apuração** e **Fiscal: DRE Lucro Real**.
+
+Os dados ficam no arquivo `kemmax_control.db`, na pasta do sistema. Em **Fiscal: Importar XML → Backup**
+dá para baixar uma cópia, restaurar ou apagar os dados fiscais. Ao atualizar o sistema para uma versão nova,
+copie o `kemmax_control.db` para a pasta nova.
+
+### Senha de acesso
+
+Para exigir senha, crie o arquivo `.streamlit/secrets.toml` com:
+
+```
+KEMMAX_SENHA = "sua-senha"
+```
+
+(ou defina a variável de ambiente `KEMMAX_SENHA`). No Streamlit Cloud, cadastre em *Settings → Secrets*.
+**Não publique o sistema na web sem senha**: os XMLs têm dados de clientes e fornecedores. Além disso,
+no Streamlit Cloud o banco é apagado quando o app reinicia - use o Backup.
+
 ## Como publicar na web
 
 1. Suba estes arquivos para o GitHub.
@@ -66,6 +98,7 @@ python -m pytest tests
 - database.py
 - calculations.py
 - seed.py
-- fiscal_xml.py, fiscal_rules.py, fiscal_apuracao.py, fiscal_pages.py
+- fiscal_xml.py, fiscal_rules.py, fiscal_apuracao.py, fiscal_pages.py, auth.py
+- iniciar_windows.bat, iniciar_mac_linux.sh, .streamlit/config.toml
 - requirements.txt
 - README.md

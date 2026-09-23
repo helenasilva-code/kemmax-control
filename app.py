@@ -5,6 +5,7 @@ from datetime import date, timedelta
 
 from database import SessionLocal, Produto, Fornecedor, ContaPagar, ContaReceber, CompraSimulada
 from seed import seed_data
+from auth import exigir_login, botao_sair
 from fiscal_pages import pagina_importar, pagina_creditos, pagina_apuracao, pagina_dre_fiscal
 from calculations import (
     brl, pct, cmv_normal, cmf_kemmax, resultado_marketplace,
@@ -17,6 +18,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+exigir_login()
 seed_data()
 db = SessionLocal()
 
@@ -52,6 +54,7 @@ menu = st.sidebar.radio(
         "Posso Comprar?"
     ]
 )
+botao_sair()
 
 def contas_pagar_df():
     rows = db.query(ContaPagar).order_by(ContaPagar.vencimento).all()

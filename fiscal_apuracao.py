@@ -1,9 +1,10 @@
 """Importação de XMLs para o banco, apuração de ICMS/PIS/COFINS e DRE fiscal (Lucro Real)."""
 import io
+from collections import Counter
 
 import pandas as pd
 
-from database import ConfigFiscalDB, DocumentoFiscal, LancamentoFiscal, CreditoExtra
+from database import ConfigFiscalDB, DocumentoFiscal, LancamentoFiscal, CreditoExtra, NotaCancelada
 from fiscal_rules import ConfigFiscal, classificar
 from fiscal_xml import ler_xml
 
@@ -66,22 +67,61 @@ def _gravar_lancamentos(db, documento_id, lancamentos):
         db.add(LancamentoFiscal(documento_id=documento_id, **{k: lanc[k] for k in CAMPOS_LANCAMENTO}))
 
 
-def importar_documentos(db, documentos, cfg):
-    """Grava documentos lidos por fiscal_xml.ler_arquivos. Ignora chaves já importadas.
+def cnpjs_candidatos(documentos):
+    """CNPJs que mais aparecem nos XMLs (a empresa está em quase todos).
 
-    Devolve (importados, duplicados, erros) - erros é lista de (arquivo, mensagem).
+    Devolve lista de (cnpj, nome, quantidade) ordenada da mais frequente.
     """
-    importados, duplicados, erros = 0, 0, []
-    chaves_lote = set()
+    contagem, nomes = Counter(), {}
     for doc in documentos:
+        if doc["tipo_documento"] == "NF-e":
+            partes = [(doc["emitente_doc"], doc["emitente_nome"]), (doc["destinatario_doc"], doc["destinatario_nome"])]
+        elif doc["tipo_documento"] == "CT-e":
+            partes = [(doc["tomador_doc"], doc["tomador_nome"])]
+        else:
+            continue
+        for cnpj, nome in {p for p in partes if len(p[0]) == 14}:
+            contagem[cnpj] += 1
+            nomes.setdefault(cnpj, nome)
+    return [(cnpj, nomes[cnpj], qtd) for cnpj, qtd in contagem.most_common()]
+
+
+def importar_documentos(db, documentos, cfg, progresso=None):
+    """Grava documentos lidos por fiscal_xml.ler_arquivos.
+
+    Ignora chaves já importadas; eventos de cancelamento removem a nota (antes ou
+    depois dela ser importada). progresso(fração) é chamado a cada documento.
+
+    Devolve dict com importados, duplicados, cancelados e erros [(arquivo, mensagem)].
+    """
+    resumo = {"importados": 0, "duplicados": 0, "cancelados": 0, "erros": []}
+    existentes = {c for (c,) in db.query(DocumentoFiscal.chave)}
+    canceladas = {c for (c,) in db.query(NotaCancelada.chave)}
+
+    # Cancelamentos primeiro, para valer mesmo se a nota vier depois no mesmo lote
+    for doc in documentos:
+        if doc["tipo_documento"] == "Evento" and doc["chave"] not in canceladas:
+            db.add(NotaCancelada(chave=doc["chave"], data_evento=doc["data_emissao"], arquivo=doc.get("arquivo", "")))
+            canceladas.add(doc["chave"])
+            if doc["chave"] in existentes:
+                excluir_documentos(db, [doc["chave"]], commit=False)
+                existentes.discard(doc["chave"])
+            resumo["cancelados"] += 1
+
+    notas = [d for d in documentos if d["tipo_documento"] != "Evento"]
+    for i, doc in enumerate(notas, start=1):
+        if progresso:
+            progresso(i / len(notas))
         chave = doc["chave"]
-        if chave in chaves_lote or db.query(DocumentoFiscal.id).filter_by(chave=chave).first():
-            duplicados += 1
+        if chave in canceladas:
+            continue
+        if chave in existentes:
+            resumo["duplicados"] += 1
             continue
         try:
             lancamentos = classificar(doc, cfg)
         except ValueError as exc:
-            erros.append((doc.get("arquivo", chave), str(exc)))
+            resumo["erros"].append((doc.get("arquivo", chave), str(exc)))
             continue
 
         registro = DocumentoFiscal(
@@ -98,10 +138,10 @@ def importar_documentos(db, documentos, cfg):
         db.add(registro)
         db.flush()
         _gravar_lancamentos(db, registro.id, lancamentos)
-        chaves_lote.add(chave)
-        importados += 1
+        existentes.add(chave)
+        resumo["importados"] += 1
     db.commit()
-    return importados, duplicados, erros
+    return resumo
 
 
 def reprocessar(db, cfg):
@@ -117,10 +157,17 @@ def reprocessar(db, cfg):
     return erros
 
 
-def excluir_documentos(db, chaves):
+def excluir_documentos(db, chaves, commit=True):
     for registro in db.query(DocumentoFiscal).filter(DocumentoFiscal.chave.in_(chaves)).all():
         db.query(LancamentoFiscal).filter_by(documento_id=registro.id).delete()
         db.delete(registro)
+    if commit:
+        db.commit()
+
+
+def apagar_dados_fiscais(db):
+    for modelo in (LancamentoFiscal, DocumentoFiscal, NotaCancelada, CreditoExtra):
+        db.query(modelo).delete()
     db.commit()
 
 

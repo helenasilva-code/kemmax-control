@@ -1,13 +1,14 @@
 """Telas Streamlit do módulo fiscal: importação de XML, créditos, apuração e DRE."""
 from datetime import date
 
+import pandas as pd
 import plotly.express as px
 import streamlit as st
 
 from calculations import brl
-from database import CreditoExtra
+from database import CreditoExtra, backup_banco, restaurar_banco
 from fiscal_apuracao import (
-    carregar_config, salvar_config, importar_documentos, reprocessar, excluir_documentos,
+    carregar_config, salvar_config, importar_documentos, cnpjs_candidatos, apagar_dados_fiscais, reprocessar, excluir_documentos,
     lancamentos_df, documentos_df, creditos_extras_df, apurar, apuracao_df,
     resumo_por_natureza, resumo_mensal, dre_lucro_real, exportar_excel,
 )
@@ -61,12 +62,19 @@ def _exibir_lancamentos(df):
                  width="stretch", hide_index=True)
 
 
-def _aviso_config(cfg):
-    if not cfg.cnpjs:
-        st.warning("Cadastre o CNPJ da empresa na aba **Configuração** antes de importar: "
-                   "é ele que define se o XML é entrada (crédito) ou saída (débito).")
-        return False
-    return True
+def _gravar_lote(db, documentos, cfg):
+    barra = st.progress(0.0, text="Gravando documentos...")
+    resumo = importar_documentos(db, documentos, cfg, progresso=lambda f: barra.progress(f, text="Gravando documentos..."))
+    barra.empty()
+    st.success(f"{resumo['importados']} documento(s) importado(s). {resumo['duplicados']} já existiam e foram "
+               f"ignorados. {resumo['cancelados']} cancelamento(s) aplicado(s).")
+    return resumo["erros"]
+
+
+def _mostrar_erros(erros):
+    if erros:
+        with st.expander(f"{len(erros)} arquivo(s) não importado(s)", expanded=len(erros) <= 10):
+            st.dataframe([{"Arquivo": n, "Motivo": m} for n, m in erros], width="stretch", hide_index=True)
 
 
 # ---------------------------------------------------------------- Importar XML
@@ -75,18 +83,39 @@ def pagina_importar(db):
     _titulo("Leitura de XML fiscal",
             "NF-e de compras e vendas e CT-e de fretes - Lucro Real (PIS/COFINS não cumulativo)")
     cfg = carregar_config(db)
-    aba_importar, aba_docs, aba_config = st.tabs(["Importar", "Documentos importados", "Configuração"])
+    aba_importar, aba_docs, aba_config, aba_backup = st.tabs(
+        ["Importar", "Documentos importados", "Configuração", "Backup"])
 
     with aba_importar:
-        if _aviso_config(cfg):
-            arquivos = st.file_uploader("Selecione XMLs de NF-e/CT-e ou arquivos .zip",
-                                        type=["xml", "zip"], accept_multiple_files=True)
-            if arquivos and st.button("Ler e gravar XMLs", type="primary"):
-                documentos, erros_leitura = ler_arquivos([(a.name, a.getvalue()) for a in arquivos])
-                importados, duplicados, erros = importar_documentos(db, documentos, cfg)
-                st.success(f"{importados} documento(s) importado(s). {duplicados} já existiam e foram ignorados.")
-                for nome, msg in erros_leitura + erros:
-                    st.error(f"{nome}: {msg}")
+        st.caption("Envie o .zip baixado do Google Drive, do portal da SEFAZ ou do contador: pode ter pastas, "
+                   "outros .zip dentro, NF-e, CT-e e eventos de cancelamento. Notas repetidas são ignoradas.")
+        arquivos = st.file_uploader("XMLs de NF-e/CT-e ou arquivos .zip", type=["xml", "zip"],
+                                    accept_multiple_files=True)
+        if arquivos and st.button("Ler arquivos", type="primary"):
+            with st.spinner("Lendo XMLs..."):
+                st.session_state["xml_lidos"] = ler_arquivos([(a.name, a.getvalue()) for a in arquivos])
+
+        if "xml_lidos" in st.session_state:
+            documentos, erros_leitura = st.session_state["xml_lidos"]
+            tipos = pd.Series([d["tipo_documento"] for d in documentos]).value_counts()
+            st.info(f"Lidos: {tipos.get('NF-e', 0)} NF-e, {tipos.get('CT-e', 0)} CT-e, "
+                    f"{tipos.get('Evento', 0)} cancelamento(s), {len(erros_leitura)} arquivo(s) com erro.")
+
+            if not cfg.cnpjs:
+                candidatos = cnpjs_candidatos(documentos)
+                st.warning("Informe qual é o CNPJ da empresa: ele define o que é compra (crédito) e o que é "
+                           "venda (débito). Abaixo, os CNPJs que mais aparecem nos XMLs.")
+                opcoes = {f"{c} - {nome} ({qtd} documentos)": c for c, nome, qtd in candidatos}
+                escolhidos = st.multiselect("CNPJ(s) da empresa (matriz e filiais)", list(opcoes),
+                                            default=list(opcoes)[:1])
+                if escolhidos and st.button("Confirmar CNPJ e gravar", type="primary"):
+                    cfg.cnpjs = [opcoes[e] for e in escolhidos]
+                    salvar_config(db, cfg)
+                    _mostrar_erros(erros_leitura + _gravar_lote(db, documentos, cfg))
+                    del st.session_state["xml_lidos"]
+            elif st.button("Gravar no sistema", type="primary"):
+                _mostrar_erros(erros_leitura + _gravar_lote(db, documentos, cfg))
+                del st.session_state["xml_lidos"]
 
         st.markdown("""
 **Como o sistema lê cada documento**
@@ -144,6 +173,28 @@ def pagina_importar(db):
             st.success("Configuração salva e documentos recalculados.")
             for nome, msg in erros:
                 st.error(f"{nome}: {msg}")
+
+
+    with aba_backup:
+        st.caption("Todos os dados ficam num único arquivo de banco (kemmax_control.db) no seu computador. "
+                   "Baixe uma cópia com frequência e guarde num local seguro.")
+        st.download_button("Baixar backup do banco", backup_banco(),
+                           file_name=f"kemmax_backup_{date.today():%Y%m%d}.db", mime="application/octet-stream")
+        restaurar = st.file_uploader("Restaurar backup (.db)", type=["db"])
+        if restaurar and st.button("Substituir os dados atuais por este backup"):
+            try:
+                restaurar_banco(restaurar.getvalue())
+            except ValueError as exc:
+                st.error(str(exc))
+            else:
+                st.success("Backup restaurado.")
+                st.rerun()
+
+        st.divider()
+        confirmar = st.checkbox("Quero apagar todos os XMLs importados, lançamentos e créditos extras")
+        if confirmar and st.button("Apagar dados fiscais"):
+            apagar_dados_fiscais(db)
+            st.success("Dados fiscais apagados. A configuração (CNPJ e alíquotas) foi mantida.")
 
 
 # ---------------------------------------------------------------- Créditos

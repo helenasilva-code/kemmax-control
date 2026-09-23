@@ -7,7 +7,7 @@ from sqlalchemy.orm import sessionmaker
 
 from database import Base
 from fiscal_apuracao import (
-    apurar, dre_lucro_real, exportar_excel, importar_documentos, lancamentos_df,
+    cnpjs_candidatos, apagar_dados_fiscais, apurar, dre_lucro_real, exportar_excel, importar_documentos, lancamentos_df,
     creditos_extras_df, reprocessar, salvar_config, carregar_config,
 )
 from fiscal_rules import ConfigFiscal, cfop_entrada, classificar
@@ -172,8 +172,8 @@ def test_importacao_apuracao_e_dre(db):
     cfg = carregar_config(db)
     docs, _ = ler_arquivos([(f"{i}.xml", x.encode()) for i, x in enumerate(
         [COMPRA, VENDA, DEVOLUCAO, FRETE_VENDA, FRETE_COMPRA, FRETE_TERCEIRO, VENDA])])
-    importados, duplicados, erros = importar_documentos(db, docs, cfg)
-    assert (importados, duplicados, erros) == (6, 1, [])
+    resumo = importar_documentos(db, docs, cfg)
+    assert resumo == {"importados": 6, "duplicados": 1, "cancelados": 0, "erros": []}
 
     lanc = lancamentos_df(db)
     extras = creditos_extras_df(db)
@@ -209,3 +209,78 @@ def test_irpj_adicional():
     _, ind = dre_lucro_real(vazio, extras, meses=1, receitas_financeiras=100000.0)
     base = 100000 * (1 - 0.0465)
     assert ind["irpj"] == pytest.approx(base * 0.15 + (base - 20000) * 0.10)
+
+
+def evento_cancelamento(chave):
+    return f"""<?xml version="1.0" encoding="UTF-8"?>
+<procEventoNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="1.00"><evento><infEvento Id="ID110111{chave}01">
+  <chNFe>{chave}</chNFe><dhEvento>2026-08-11T09:00:00-03:00</dhEvento><tpEvento>110111</tpEvento>
+</infEvento></evento></procEventoNFe>"""
+
+
+def test_cancelamento_antes_e_depois(db):
+    chave_venda = ler_xml(VENDA)["chave"]
+    chave_compra = ler_xml(COMPRA)["chave"]
+    docs, erros = ler_arquivos([("venda.xml", VENDA.encode()), ("canc.xml", evento_cancelamento(chave_venda).encode())])
+    assert erros == []
+    resumo = importar_documentos(db, docs, CFG)
+    assert resumo["importados"] == 0 and resumo["cancelados"] == 1
+
+    # Nota já importada e cancelada depois
+    importar_documentos(db, ler_arquivos([("compra.xml", COMPRA.encode())])[0], CFG)
+    assert len(lancamentos_df(db)) == 1
+    resumo = importar_documentos(db, ler_arquivos([("c.xml", evento_cancelamento(chave_compra).encode())])[0], CFG)
+    assert resumo["cancelados"] == 1
+    assert lancamentos_df(db).empty
+
+    # Reimportar a nota cancelada não traz ela de volta
+    assert importar_documentos(db, ler_arquivos([("compra.xml", COMPRA.encode())])[0], CFG)["importados"] == 0
+
+
+def test_outros_eventos_sao_ignorados():
+    carta = evento_cancelamento("3526" + "0" * 40).replace("110111", "110110")
+    docs, erros = ler_arquivos([("cce.xml", carta.encode())])
+    assert docs == [] and erros == []
+
+
+def test_xml_iso_8859_1_e_bom(db):
+    latin = COMPRA.replace('encoding="UTF-8"', 'encoding="ISO-8859-1"').replace("Produto 1", "Encadernação")
+    docs, erros = ler_arquivos([("latin.xml", latin.encode("latin-1")),
+                                ("bom.xml", b"\xef\xbb\xbf" + VENDA.encode())])
+    assert erros == []
+    assert docs[0]["itens"][0]["descricao"] == "Encadernação"
+    importar_documentos(db, docs, CFG)
+    assert reprocessar(db, CFG) == []
+    assert "Encadernação" in lancamentos_df(db)["descricao"].tolist()
+
+
+def test_cnpjs_candidatos():
+    docs, _ = ler_arquivos([(f"{i}.xml", x.encode()) for i, x in enumerate([COMPRA, VENDA, DEVOLUCAO, FRETE_VENDA])])
+    assert cnpjs_candidatos(docs)[0][0] == EMPRESA
+
+
+def test_apagar_dados_fiscais(db):
+    importar_documentos(db, ler_arquivos([("compra.xml", COMPRA.encode())])[0], CFG)
+    apagar_dados_fiscais(db)
+    assert lancamentos_df(db).empty
+
+
+def test_backup_e_restauracao():
+    import database
+    from database import SessionLocal, backup_banco, restaurar_banco
+    from seed import seed_data
+    seed_data()
+    sessao = SessionLocal()
+    importar_documentos(sessao, ler_arquivos([("compra.xml", COMPRA.encode())])[0], CFG)
+    copia = backup_banco()
+    apagar_dados_fiscais(sessao)
+    assert lancamentos_df(sessao).empty
+    sessao.close()
+
+    restaurar_banco(copia)
+    sessao = SessionLocal()
+    assert len(lancamentos_df(sessao)) == 1
+    sessao.close()
+    with pytest.raises(ValueError):
+        restaurar_banco(b"nao e banco")
+    assert database.DB_PATH.endswith("teste.db")

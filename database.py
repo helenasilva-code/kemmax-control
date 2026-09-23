@@ -1,8 +1,12 @@
 from sqlalchemy import create_engine, Column, Integer, String, Float, Date, Boolean, Text, ForeignKey
 from sqlalchemy.orm import declarative_base, sessionmaker
 from datetime import date
+import os
 
-engine = create_engine("sqlite:///kemmax_control.db", echo=False)
+# Caminho do banco: por padrão na pasta do app; KEMMAX_DB permite apontar para outra pasta
+DB_PATH = os.environ.get("KEMMAX_DB", os.path.join(os.path.dirname(os.path.abspath(__file__)), "kemmax_control.db"))
+
+engine = create_engine(f"sqlite:///{DB_PATH}", echo=False)
 SessionLocal = sessionmaker(bind=engine)
 Base = declarative_base()
 
@@ -125,6 +129,14 @@ class LancamentoFiscal(Base):
     custo = Column(Float, default=0)
     observacao = Column(String)
 
+class NotaCancelada(Base):
+    """Chaves com evento de cancelamento: não entram na apuração nem se forem importadas depois."""
+    __tablename__ = "notas_canceladas"
+    id = Column(Integer, primary_key=True)
+    chave = Column(String, unique=True, index=True)
+    data_evento = Column(Date)
+    arquivo = Column(String)
+
 class CreditoExtra(Base):
     """Créditos fora dos XMLs: energia, aluguel, armazenagem (FULL), depreciação, CIAP..."""
     __tablename__ = "creditos_extras"
@@ -138,3 +150,44 @@ class CreditoExtra(Base):
     icms_credito = Column(Float, default=0)
 
 Base.metadata.create_all(bind=engine)
+
+
+def backup_banco():
+    """Cópia consistente do banco SQLite em bytes."""
+    import sqlite3
+    import tempfile
+    with tempfile.TemporaryDirectory() as pasta:
+        destino_path = os.path.join(pasta, "backup.db")
+        origem = sqlite3.connect(DB_PATH)
+        destino = sqlite3.connect(destino_path)
+        with destino:
+            origem.backup(destino)
+        origem.close()
+        destino.close()
+        with open(destino_path, "rb") as f:
+            return f.read()
+
+
+def restaurar_banco(conteudo):
+    """Substitui o banco atual por um backup gerado por backup_banco()."""
+    import sqlite3
+    import tempfile
+    if not conteudo.startswith(b"SQLite format 3\x00"):
+        raise ValueError("Arquivo não é um banco SQLite.")
+    with tempfile.TemporaryDirectory() as pasta:
+        origem_path = os.path.join(pasta, "restaurar.db")
+        with open(origem_path, "wb") as f:
+            f.write(conteudo)
+        origem = sqlite3.connect(origem_path)
+        tabelas = {r[0] for r in origem.execute("select name from sqlite_master where type='table'")}
+        if "produtos" not in tabelas:
+            origem.close()
+            raise ValueError("Backup não é do Kemmax Control.")
+        engine.dispose()
+        destino = sqlite3.connect(DB_PATH)
+        with destino:
+            origem.backup(destino)
+        origem.close()
+        destino.close()
+    # Backups antigos podem não ter as tabelas novas
+    Base.metadata.create_all(bind=engine)

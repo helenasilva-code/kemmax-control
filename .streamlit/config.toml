@@ -1,0 +1,6 @@
+[server]
+# XMLs de um ano inteiro em .zip podem passar de 200 MB (padrão do Streamlit)
+maxUploadSize = 1000
+
+[browser]
+gatherUsageStats = false
