@@ -108,7 +108,7 @@ td.n,th.n{text-align:right}tr.tot td{font-weight:700;background:#f8fafc}tr.nf{cu
 
 <section class="page" id="cte"><div class="card"><h2>CT-e e Créditos Mensais</h2><div class="grid"><div class="kpi"><span>CT-e únicos</span><b id="cteN">0</b></div><div class="kpi"><span>Valor fretes</span><b id="cteV">R$ 0,00</b></div><div class="kpi"><span>ICMS destacado (todos)</span><b id="cteI">R$ 0,00</b></div><div class="kpi"><span>Crédito total (ICMS + PIS + COFINS)</span><b id="cteC">R$ 0,00</b></div></div><div class="grid" style="margin-top:12px"><div class="kpi"><span>Crédito ICMS</span><b id="cteIcms">R$ 0,00</b></div><div class="kpi"><span>Crédito PIS</span><b id="ctePis">R$ 0,00</b></div><div class="kpi"><span>Crédito COFINS</span><b id="cteCof">R$ 0,00</b></div><div class="kpi"><span>Base de crédito PIS/COFINS</span><b id="cteBase">R$ 0,00</b></div></div>
 <p class="mut">Uma chave de CT-e é um documento: se aparecer em Meli e ERP, não é somado duas vezes. Regra automática: crédito quando a empresa é a <b>tomadora</b> do frete — frete sobre vendas (art. 3º, IX, Lei 10.833) e frete sobre compras — ICMS destacado + PIS 1,65% + COFINS 7,6%. Você pode mudar a classificação de cada CT-e.</p>
-<div class="actions"><label>Mostrar<select id="cteFilter"><option value="">Todos</option><option>Creditável</option><option>Não creditável</option></select></label><button class="btn gray" id="cteCsv">Exportar CSV</button></div></div>
+<div class="actions"><label>Base do PIS/COFINS no CT-e<select id="cteBaseRegra"><option value="integral">Valor integral do CT-e</option><option value="sem_icms">Valor do CT-e menos o ICMS destacado</option></select></label><label>Mostrar<select id="cteFilter"><option value="">Todos</option><option>Creditável</option><option>Não creditável</option></select></label><button class="btn gray" id="cteCsv">Exportar CSV</button><button class="btn gray" id="cteTodos">Marcar todos do mês como creditáveis</button><button class="btn gray" id="cteAuto">Voltar todos ao automático</button></div><p class="mut">A base do crédito segue a orientação da contabilidade: há quem exclua o ICMS da base também no frete, por analogia à Lei 14.592/2023.</p></div>
 <div class="card"><h3>CT-e — créditos mês a mês</h3><div class="scroll"><table><thead><tr><th>Competência</th><th class="n">Documentos</th><th class="n">Valor</th><th class="n">Base PIS/COFINS</th><th class="n">Crédito ICMS</th><th class="n">Crédito PIS</th><th class="n">Crédito COFINS</th><th class="n">Total de créditos</th></tr></thead><tbody id="cteMes"></tbody></table></div><div class="actions" style="margin-top:10px"><button class="btn gray" id="cteMesCsv">Exportar CSV</button></div></div><div class="card"><h3>CT-e da competência</h3><div class="scroll"><table><thead><tr><th>Data</th><th>Número</th><th>Emitente</th><th>Fonte</th><th>Tipo de frete</th><th class="n">Valor</th><th class="n">ICMS</th><th class="n">PIS</th><th class="n">COFINS</th><th class="n">Crédito total</th><th>Classificação</th><th>Motivo</th></tr></thead><tbody id="cteBody"></tbody></table></div></div></section>
 
 <section class="page" id="vendas"><div class="card"><h2>NF de Venda</h2><p>Notas de venda emitidas pela empresa e devoluções de clientes na competência. Clique na nota para ver os itens.</p>
@@ -177,7 +177,8 @@ const CANAIS_PADRAO=[['Mercado Livre','03007331000141'],['Shopee','3563582400011
 let db=null, idb=null, saveTimer=null, versao=0, cache=null;
 const NCM_PADRAO=['8441.10.90','8440.10.90','8439.30.90','8420.10.10'].map(ncm=>({ncm,carga:8.8,cargaNNE:5.14}));
 const PARSER=2;
-function novoDb(){return {config:{cnpjs:[],pis:1.65,cofins:7.6,exDeb:true,exCred:true,ipi:true,st:false,ncmReducao:NCM_PADRAO.map(x=>({...x}))},
+const CNPJ_KEMMAX='48221981000123';
+function novoDb(){return {config:{cnpjs:[CNPJ_KEMMAX],cteBase:'integral',pis:1.65,cofins:7.6,exDeb:true,exCred:true,ipi:true,st:false,ncmReducao:NCM_PADRAO.map(x=>({...x}))},
  docs:{},canceled:{},products:[],channels:[],channelMap:CANAIS_PADRAO.map(([name,cnpj])=>({name,cnpj})),
  cteOverride:{},imports:[],expenses:[],extras:[],closed:[],saldos:{icms:0,pis:0,cofins:0}}}
 
@@ -286,6 +287,7 @@ $('#registerImport').onclick=async()=>{
    try{d=lerXml(bytes,nome)}catch(e){r.err++;if(r.erros.length<50)r.erros.push(nome.split('/').pop()+': '+e.message);return}
    if(!d||!d.k)return;
    if(d.t==='Evento'){if(d.cancel&&!db.canceled[d.k]){db.canceled[d.k]=true;delete db.docs[d.k];r.canc++}return}
+   if(/cancelad/i.test(nome)&&d.t!=='Evento'){if(!db.canceled[d.k]){db.canceled[d.k]=true;delete db.docs[d.k];r.canc++}return}
    if(db.canceled[d.k])return;
    if(db.docs[d.k]&&(db.docs[d.k].v||1)>=PARSER){r.rep++;return}
    if(db.docs[d.k]){db.docs[d.k]=d;r.atu=(r.atu||0)+1;return}
@@ -303,8 +305,9 @@ $('#registerImport').onclick=async()=>{
   $('#importResult').insertAdjacentHTML('beforeend',`<div class="note${r.err?' yel':''}" style="margin-bottom:8px"><b>${esc(f.name)}</b>: ${r.xml} XML lidos • <b>${r.novos} novos</b> • ${r.rep} repetidos (não somados) • ${r.canc} cancelamentos${r.atu?` • ${r.atu} atualizados (lidos de novo com NCM)`:''}${r.fechado?` • ${r.fechado} de competência fechada (ignorados)`:''}${r.err?` • <span class="bad">${r.err} com erro</span><br><span class="mut">${r.erros.map(esc).join('<br>')}</span>`:''}</div>`);
  }
  $('#progressBar').style.width='100%';$('#progressText').textContent='Importação concluída.';
- if(!db.config.cnpjs.length){let s=sugerirCnpj();if(s.length){db.config.cnpjs=[s[0][0]];
-  $('#importResult').insertAdjacentHTML('beforeend',`<div class="note yel">CNPJ da empresa definido automaticamente como <b>${esc(s[0][0])}</b> (${esc(s[0][1])}), o que mais aparece nos XMLs. Confira em <b>Configuração e Backup</b>.</div>`)}}
+ let aparece=Object.values(db.docs).some(d=>d.t==='NF-e'?eEmpresa(d.ed)||eEmpresa(d.dd):eEmpresa(d.td));
+ if(!aparece){let s=sugerirCnpj();if(s.length){db.config.cnpjs=[s[0][0]];
+  $('#importResult').insertAdjacentHTML('beforeend',`<div class="note yel">O CNPJ configurado não aparece nos XMLs: CNPJ da empresa definido automaticamente como <b>${esc(s[0][0])}</b> (${esc(s[0][1])}), o que mais aparece nos XMLs. Confira em <b>Configuração e Backup</b>.</div>`)}}
  let meses=Object.values(db.docs).map(d=>d.dt.slice(0,7)).filter(Boolean).sort();
  if(meses.length)$('#month').dataset.want=meses.at(-1);
  changed();await saveNow();
@@ -375,7 +378,7 @@ function classificarCte(d){
  if(ov==='Creditável'){credita=true;icms=d.icms;obs.push('Classificado manualmente')}
  if(ov==='Não creditável'){credita=false;icms=0;obs.push('Classificado manualmente')}
  L.icmsC=icms;
- if(credita){L.bpc=d.vt;L.pisC=d.vt*cfg.pis/100;L.cofC=d.vt*cfg.cofins/100}
+ if(credita){let b=cfg.cteBase==='sem_icms'?Math.max(d.vt-icms,0):d.vt;L.bpc=b;L.pisC=b*cfg.pis/100;L.cofC=b*cfg.cofins/100}
  L.classif=(credita||icms>0)?'Creditável':'Não creditável';
  if(L.nat==='Frete sobre compras')L.custo=d.vt-L.icmsC-L.pisC-L.cofC;
  L.obs=obs.join('; ');return [L];
@@ -511,7 +514,7 @@ function renderChannels(){
  let nomes=[...new Set([...db.channelMap.map(c=>c.name),...Object.keys(cont),SEM_CANAL])];
  $('#chList').innerHTML=nomes.map(n=>`<option value="${esc(n)}">`).join('');
  $('#channelBody').innerHTML=db.channels.map((c,i)=>`<tr><td>${esc(c.name)}</td><td>${esc(c.vig||'—')}</td><td class="n">${c.pct}%</td><td class="n">${brl(c.fixed)}</td><td class="n">${c.ant}%</td><td class="n">${c.other}%</td><td><button class="link" onclick="delCh(${i})">Excluir</button></td></tr>`).join('')||'<tr><td colspan="7" class="mut">Nenhuma regra: as comissões ficam zeradas até você cadastrar.</td></tr>'}
-function renderCte(m){
+function renderCte(m){$('#cteBaseRegra').value=db.config.cteBase||'integral';
  let ct=derivar().lancs.filter(x=>x.t==='CT-e'&&x.m===m),f=$('#cteFilter').value,cred=x=>x.icmsC+x.pisC+x.cofC;
  kpiCreditos('cte',ct);creditosMes('cte',m,x=>x.t==='CT-e');$('#cteN').textContent=ct.length;$('#cteV').textContent=brl(soma(ct,'vc'));$('#cteI').textContent=brl(soma(ct,x=>db.docs[x.k].icms));$('#cteC').textContent=brl(soma(ct,cred));
  $('#cteBody').innerHTML=ct.filter(x=>!f||x.classif===f).sort((a,b)=>a.dt.localeCompare(b.dt)).map(x=>{let d=db.docs[x.k],ov=db.cteOverride[x.k]||'';
@@ -662,6 +665,12 @@ $('#saveCfg').onclick=()=>{let c=db.config;c.cnpjs=$('#cfgCnpj').value.split(/[,
 $('#addNcm').onclick=()=>{let n=digits($('#ncmNovo').value);if(n.length<4)return alert('Informe o NCM (pelo menos 4 dígitos).');
  db.config.ncmReducao=(db.config.ncmReducao||[]).filter(r=>digits(r.ncm)!==n);db.config.ncmReducao.push({ncm:fmtNcm(n),carga:num('#ncmCarga'),cargaNNE:num('#ncmCargaNNE')||num('#ncmCarga')});$('#ncmNovo').value='';changed()};
 window.delNcm=i=>{db.config.ncmReducao.splice(i,1);changed()};
+$('#cteBaseRegra').onchange=()=>{db.config.cteBase=$('#cteBaseRegra').value;changed()};
+$('#cteTodos').onclick=()=>{let m=$('#month').value,ks=Object.values(db.docs).filter(d=>d.t==='CT-e'&&d.dt.startsWith(m)).map(d=>d.k);
+ if(!ks.length)return alert('Não há CT-e nesta competência.');
+ if(!confirm(`Marcar os ${ks.length} CT-e de ${rotulo(m)} como creditáveis? Faça isso só se o direito ao crédito já foi conferido.`))return;
+ ks.forEach(k=>db.cteOverride[k]='Creditável');changed()};
+$('#cteAuto').onclick=()=>{let m=$('#month').value;Object.values(db.docs).filter(d=>d.t==='CT-e'&&d.dt.startsWith(m)).forEach(d=>delete db.cteOverride[d.k]);changed()};
 $('#closeMonth').onclick=()=>{let m=$('#month').value;if(!db.closed.includes(m))db.closed.push(m);changed()};
 $('#openMonth').onclick=()=>{db.closed=db.closed.filter(x=>x!==$('#month').value);changed()};
 $('#month').onchange=()=>{let m=$('#month').value;$('#expMonth').value=$('#exMonth').value=m;render()};

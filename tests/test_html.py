@@ -29,6 +29,8 @@ def _zip(tmp_path):
         zf.writestr("Mercado Livre/venda.xml", venda)
         zf.writestr("ERP/venda-copia.xml", venda)
         zf.writestr("Meli/devolucao.xml", devol)
+        zf.writestr("Canceladas/venda-cancelada.xml",
+                    nfe("35260811111111000111550010000000991000000099", EMPRESA, CLIENTE, [_item(1, "5102", 999.0, 0.0)]))
         interno = io.BytesIO()
         with zipfile.ZipFile(interno, "w", zipfile.ZIP_DEFLATED) as z2:
             z2.writestr("cte/frete.xml", frete)
@@ -62,7 +64,7 @@ def test_html_completo(tmp_path):
         page.click("#registerImport")
         page.wait_for_selector("text=Importação concluída.")
         resultado = page.inner_text("#importResult")
-        assert "4 novos" in resultado and "1 repetidos" in resultado
+        assert "4 novos" in resultado and "1 repetidos" in resultado and "1 cancelamentos" in resultado
         assert EMPRESA in resultado  # CNPJ definido automaticamente
 
         page.click("text=Canais e Tarifas")
@@ -110,6 +112,12 @@ def test_html_completo(tmp_path):
         lair = 511.89 - 100
         assert _linha(page, "= Resultado antes IRPJ/CSLL", "2026-08") == pytest.approx(lair, abs=0.01)
         assert _linha(page, "= Lucro líquido (DRE)", "2026-08") == pytest.approx(lair * 0.76, abs=0.01)
+
+        page.click("text=CT-e e Créditos")
+        page.select_option("#cteBaseRegra", "sem_icms")
+        assert _valor(page, "#ctePis") == pytest.approx(88 * 0.0165, abs=0.01)
+        page.select_option("#cteBaseRegra", "integral")
+        assert _valor(page, "#ctePis") == pytest.approx(1.65)
 
         page.click("text=Apuração Impostos")
         apur = page.evaluate("window._apur.linhas.filter(l=>l[0].startsWith('ICMS — A recolher'))[0][1]")
