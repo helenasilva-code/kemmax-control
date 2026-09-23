@@ -153,6 +153,10 @@ td.n,th.n{text-align:right}tr.tot td{font-weight:700;background:#f8fafc}tr.nf{cu
 <label class="chk"><input type="checkbox" id="cfgIpi"> Incluir IPI não recuperável na base do crédito</label>
 <label class="chk"><input type="checkbox" id="cfgSt"> Incluir ICMS-ST na base do crédito (tema controverso)</label></div>
 <p class="mut">Mudou alguma regra? Salve: todos os documentos são recalculados na hora.</p></div>
+<div class="card"><h2>NCMs com redução da base de ICMS</h2>
+<p class="mut">Produtos com carga reduzida (ex.: máquinas do Convênio ICMS 52/91). O sistema confere, item a item, se o ICMS destacado nas compras e vendas bate com a carga esperada (Auditoria). Pode cadastrar o NCM completo (8 dígitos) ou só o início (ex.: 8440 vale para todos os 8440.xx.xx). Confirme a lista e as cargas com a contabilidade.</p>
+<div class="actions"><label>NCM<input id="ncmNovo" placeholder="8440.10.90"></label><label>Carga efetiva %<input type="number" step=".01" id="ncmCarga" value="8.8"></label><label>Carga Sul/Sudeste → N/NE/CO/ES %<input type="number" step=".01" id="ncmCargaNNE" value="5.14"></label><button class="primary" id="addNcm">Adicionar</button></div>
+<table style="margin-top:10px"><thead><tr><th>NCM</th><th class="n">Carga efetiva</th><th class="n">Carga S/SE → N/NE/CO/ES</th><th></th></tr></thead><tbody id="ncmBody"></tbody></table></div>
 <div class="card"><h2>Backup</h2><p>Os dados ficam no navegador deste computador. Se limpar os dados do navegador, eles se perdem: <b>baixe um backup toda semana</b>.</p>
 <div class="actions"><button class="primary" id="bkDown">Baixar backup</button><label>Restaurar backup<input type="file" id="bkUp" accept=".json"></label><button class="btn gray" id="storageInfo">Uso do armazenamento</button><button class="btn red" id="wipe">Apagar todos os dados</button></div></div></section>
 </main>
@@ -171,7 +175,9 @@ const SEM_CANAL='Venda direta / outros';
 const CANAIS_PADRAO=[['Mercado Livre','03007331000141'],['Shopee','35635824000112'],['Amazon','15436940000103'],['Magalu','47960950000121']];
 
 let db=null, idb=null, saveTimer=null, versao=0, cache=null;
-function novoDb(){return {config:{cnpjs:[],pis:1.65,cofins:7.6,exDeb:true,exCred:true,ipi:true,st:false},
+const NCM_PADRAO=['8441.10.90','8440.10.90','8439.30.90','8420.10.10'].map(ncm=>({ncm,carga:8.8,cargaNNE:5.14}));
+const PARSER=2;
+function novoDb(){return {config:{cnpjs:[],pis:1.65,cofins:7.6,exDeb:true,exCred:true,ipi:true,st:false,ncmReducao:NCM_PADRAO.map(x=>({...x}))},
  docs:{},canceled:{},products:[],channels:[],channelMap:CANAIS_PADRAO.map(([name,cnpj])=>({name,cnpj})),
  cteOverride:{},imports:[],expenses:[],extras:[],closed:[],saldos:{icms:0,pis:0,cofins:0}}}
 
@@ -184,7 +190,7 @@ const idbPut=(k,v)=>new Promise((res,rej)=>{let tx=idb.transaction('state','read
 async function saveNow(){clearTimeout(saveTimer);if(idb)await idbPut(K,db)}
 function changed(){versao++;cache=null;clearTimeout(saveTimer);saveTimer=setTimeout(saveNow,200);render()}
 async function loadDB(){await openDB();let x=await idbGet(K);db=Object.assign(novoDb(),x||{});
- db.config=Object.assign(novoDb().config,db.config||{});
+ db.config=Object.assign(novoDb().config,db.config||{});if(!Array.isArray(db.config.ncmReducao))db.config.ncmReducao=NCM_PADRAO.map(x=>({...x}));
  if(!x){ // traz cadastros da V3, se existirem
   try{let v3=await idbGet('kemmax_gestao_lr_v3');if(v3){db.products=(v3.products||[]).map(p=>calcProduto(p));
    db.channels=v3.channels||[];db.expenses=(v3.expenses||[]).filter(e=>e.cat);db.closed=v3.closed||[]}}catch(e){}
@@ -209,10 +215,10 @@ function lerNfe(root,path){
  let refs=ide?[...ide.getElementsByTagNameNS('*','refNFe')].map(r=>r.textContent.trim()):[];
  let it=kids(inf,'det').map(det=>{let pr=kid(det,'prod'),imp=kid(det,'imposto'),g=kid(imp,'ICMS'),g1=g&&g.firstElementChild,
    pis=kid(imp,'PIS'),p1=pis&&pis.firstElementChild,cof=kid(imp,'COFINS'),c1=cof&&cof.firstElementChild,ipi=at(imp,'IPI','IPITrib'),df=kid(imp,'ICMSUFDest');
-   return {c:tx(pr,'cProd'),d:tx(pr,'xProd'),cfop:tx(pr,'CFOP'),q:nm(pr,'qCom'),vp:nm(pr,'vProd'),vd:nm(pr,'vDesc'),vf:nm(pr,'vFrete'),vs:nm(pr,'vSeg'),vo:nm(pr,'vOutro'),
+   return {c:tx(pr,'cProd'),d:tx(pr,'xProd'),ncm:tx(pr,'NCM'),cfop:tx(pr,'CFOP'),q:nm(pr,'qCom'),vp:nm(pr,'vProd'),vd:nm(pr,'vDesc'),vf:nm(pr,'vFrete'),vs:nm(pr,'vSeg'),vo:nm(pr,'vOutro'),
      ipi:ipi?nm(ipi,'vIPI'):0,cstPis:p1?tx(p1,'CST'):'',vPis:p1?nm(p1,'vPIS'):0,vCof:c1?nm(c1,'vCOFINS'):0,difal:df?nm(df,'vICMSUFDest')+nm(df,'vFCPUFDest'):0,difalIcms:df?nm(df,'vICMSUFDest'):0,fcp:df?nm(df,'vFCPUFDest'):0,pDest:df?nm(df,'pICMSUFDest'):0,pInter:df?nm(df,'pICMSInter'):0,
      bc:g1?nm(g1,'vBC'):0,icms:g1?nm(g1,'vICMS'):0,cst:g1?(tx(g1,'CST')||tx(g1,'CSOSN')):'',pIcms:g1?nm(g1,'pICMS'):0,pRed:g1?nm(g1,'pRedBC'):0,st:g1?nm(g1,'vICMSST'):0,sn:g1?nm(g1,'vCredICMSSN'):0}});
- return {t:'NF-e',k,n:tx(ide,'nNF'),dt:(tx(ide,'dhEmi')||tx(ide,'dEmi')).slice(0,10),tp:tx(ide,'tpNF'),fin:tx(ide,'finNFe'),
+ return {v:PARSER,t:'NF-e',ufe:tx(emit,'enderEmit','UF'),k,n:tx(ide,'nNF'),dt:(tx(ide,'dhEmi')||tx(ide,'dEmi')).slice(0,10),tp:tx(ide,'tpNF'),fin:tx(ide,'finNFe'),
   ed:docId(emit),en:tx(emit,'xNome'),dd:docId(dest),dn:tx(dest,'xNome'),uf:tx(dest,'enderDest','UF'),vt:nm(tot,'vNF'),im:im?tx(im,'CNPJ'):'',ref:refs[0]||'',it,p:path}
 }
 const TOMA={'0':'rem','1':'exped','2':'receb','3':'dest'};
@@ -223,7 +229,7 @@ function lerCte(root,path){
  if(t4)tom=t4;else tom=partes[TOMA[t3?tx(t3,'toma'):tx(ide,'toma')]||'rem'];
  let g=kid(kid(inf,'imp'),'ICMS'),g1=g&&g.firstElementChild;
  let nfes=[...inf.getElementsByTagNameNS('*','infNFe')].map(e=>tx(e,'chave')).filter(Boolean);
- return {t:'CT-e',k:digits(inf.getAttribute('Id')),n:tx(ide,'nCT'),dt:tx(ide,'dhEmi').slice(0,10),cfop:tx(ide,'CFOP'),
+ return {v:PARSER,t:'CT-e',k:digits(inf.getAttribute('Id')),n:tx(ide,'nCT'),dt:tx(ide,'dhEmi').slice(0,10),cfop:tx(ide,'CFOP'),
   ed:docId(emit),en:tx(emit,'xNome'),rd:docId(partes.rem),rn:tx(partes.rem,'xNome'),dd:docId(partes.dest),dn:tx(partes.dest,'xNome'),
   td:docId(tom),tn:tx(tom,'xNome'),vt:nm(kid(inf,'vPrest'),'vTPrest'),icms:g1?nm(g1,'vICMS')+nm(g1,'vICMSOutraUF'):0,
   sn:!!(g1&&g1.localName==='ICMSSN'),nfes,p:path}
@@ -281,7 +287,8 @@ $('#registerImport').onclick=async()=>{
    if(!d||!d.k)return;
    if(d.t==='Evento'){if(d.cancel&&!db.canceled[d.k]){db.canceled[d.k]=true;delete db.docs[d.k];r.canc++}return}
    if(db.canceled[d.k])return;
-   if(db.docs[d.k]){r.rep++;return}
+   if(db.docs[d.k]&&(db.docs[d.k].v||1)>=PARSER){r.rep++;return}
+   if(db.docs[d.k]){db.docs[d.k]=d;r.atu=(r.atu||0)+1;return}
    if(db.closed.includes(d.dt.slice(0,7))){r.fechado++;return}
    db.docs[d.k]=d;r.novos++;
   }
@@ -293,7 +300,7 @@ $('#registerImport').onclick=async()=>{
    else await entrada(f.name,buf);
   }catch(e){r.err++;r.erros.push(f.name+': '+e.message)}
   db.imports.push({file:r.file,date:r.date,xml:r.xml,novos:r.novos,rep:r.rep,canc:r.canc,err:r.err});
-  $('#importResult').insertAdjacentHTML('beforeend',`<div class="note${r.err?' yel':''}" style="margin-bottom:8px"><b>${esc(f.name)}</b>: ${r.xml} XML lidos • <b>${r.novos} novos</b> • ${r.rep} repetidos (não somados) • ${r.canc} cancelamentos${r.fechado?` • ${r.fechado} de competência fechada (ignorados)`:''}${r.err?` • <span class="bad">${r.err} com erro</span><br><span class="mut">${r.erros.map(esc).join('<br>')}</span>`:''}</div>`);
+  $('#importResult').insertAdjacentHTML('beforeend',`<div class="note${r.err?' yel':''}" style="margin-bottom:8px"><b>${esc(f.name)}</b>: ${r.xml} XML lidos • <b>${r.novos} novos</b> • ${r.rep} repetidos (não somados) • ${r.canc} cancelamentos${r.atu?` • ${r.atu} atualizados (lidos de novo com NCM)`:''}${r.fechado?` • ${r.fechado} de competência fechada (ignorados)`:''}${r.err?` • <span class="bad">${r.err} com erro</span><br><span class="mut">${r.erros.map(esc).join('<br>')}</span>`:''}</div>`);
  }
  $('#progressBar').style.width='100%';$('#progressText').textContent='Importação concluída.';
  if(!db.config.cnpjs.length){let s=sugerirCnpj();if(s.length){db.config.cnpjs=[s[0][0]];
@@ -333,7 +340,7 @@ function classificarNfe(d){
   let merc=i.vp-i.vd+i.vf+i.vs+i.vo,vc=merc+i.ipi+i.st,L=base(d),obs=[];
   let baseCred=()=>Math.max(merc+(cfg.ipi?i.ipi:0)+(cfg.st?i.st:0)-(cfg.exCred?i.icms:0),0);
   Object.assign(L,{dir,part,c:i.c,d:i.d,q:i.q,cfop:cf,nat,vc,st:i.st,ipi:i.ipi,difal:dir==='Saída'?i.difal:0,
-   cst:i.cst||'',pIcms:i.pIcms||0,pRed:i.pRed||0,uf:d.uf||'',fcp:dir==='Saída'?(i.fcp||0):0,difalIcms:dir==='Saída'?(i.difalIcms??i.difal):0,pDest:i.pDest||0,pInter:i.pInter||0,icmsNota:i.icms,carga:merc>0?i.icms/merc:0});
+   cst:i.cst||'',pIcms:i.pIcms||0,pRed:i.pRed||0,ncm:digits(i.ncm),ufOrig:d.ufe||'',ufDest:d.uf||'',uf:d.uf||'',fcp:dir==='Saída'?(i.fcp||0):0,difalIcms:dir==='Saída'?(i.difalIcms??i.difal):0,pDest:i.pDest||0,pInter:i.pInter||0,icmsNota:i.icms,carga:merc>0?i.icms/merc:0});
   if(nat==='Outras operações')obs.push('CFOP sem crédito/débito automático - revisar');
   if(dir==='Saída'){
    if(usaIcms)L.icmsD=i.icms;
@@ -513,8 +520,18 @@ function renderCte(m){
 window.setCte=(k,v)=>{if(v)db.cteOverride[k]=v;else delete db.cteOverride[k];changed()};
 const entradaNfe=x=>x.t==='NF-e'&&x.dir==='Entrada'&&x.nat!=='Devolução de venda';
 const credito=x=>x.icmsC+x.pisC+x.cofC;
+const UF_SUL_SUDESTE=new Set(['PR','RS','SC','SP','RJ','MG']),UF_NNE_CO_ES=new Set('AC AL AM AP BA CE DF ES GO MA MS MT PA PB PE PI RN RO RR SE TO'.split(' '));
+const fmtNcm=n=>{n=digits(n);return n.length===8?n.slice(0,4)+'.'+n.slice(4,6)+'.'+n.slice(6):n};
+function regraNcm(ncm){ncm=digits(ncm);if(!ncm)return null;
+ return (db.config.ncmReducao||[]).map(r=>({...r,d:digits(r.ncm)})).filter(r=>r.d&&ncm.startsWith(r.d)).sort((a,b)=>b.d.length-a.d.length)[0]||null}
+function conferirReducao(x){ // item de NF-e (compra ou venda) com NCM cadastrado
+ let r=regraNcm(x.ncm);if(!r)return null;
+ let orig=x.ufOrig,dest=x.ufDest,inter=orig&&dest&&orig!==dest,paraNNE=inter&&UF_SUL_SUDESTE.has(orig)&&UF_NNE_CO_ES.has(dest);
+ let esperado=paraNNE?+r.cargaNNE:+r.carga,merc=x.vc-x.ipi-x.st,real=merc>0?x.icmsNota/merc*100:0,dif=x.icmsNota-merc*esperado/100;
+ let status=Math.abs(real-esperado)<=0.1?'OK':x.icmsNota===0?'Sem ICMS destacado':real>esperado?'Destacado acima':'Destacado abaixo';
+ return {regra:r,esperado,real,dif,status,merc}}
 const reduzido=x=>x.pRed>0||['20','70'].includes(String(x.cst).slice(-2));
-const infoIcms=x=>x.cst===undefined?'':`CST ${esc(x.cst||'—')}${x.pIcms?' • alíq. '+qtd(x.pIcms)+'%':''}${x.pRed?' • <b>redução da base '+qtd(x.pRed)+'%</b>':''} • carga efetiva ${pct(x.carga||0)}`;
+const infoIcms=x=>x.cst===undefined?'':`${x.ncm?'NCM '+fmtNcm(x.ncm)+(regraNcm(x.ncm)?' <b>(redução Conv. 52/91)</b>':'')+' • ':''}CST ${esc(x.cst||'—')}${x.pIcms?' • alíq. '+qtd(x.pIcms)+'%':''}${x.pRed?' • <b>redução da base '+qtd(x.pRed)+'%</b>':''} • carga efetiva ${pct(x.carga||0)}`;
 function kpiCreditos(pre,L){$('#'+pre+'Icms').textContent=brl(soma(L,'icmsC'));$('#'+pre+'Pis').textContent=brl(soma(L,'pisC'));
  $('#'+pre+'Cof').textContent=brl(soma(L,'cofC'));$('#'+pre+'Base').textContent=brl(soma(L,'bpc'))}
 function creditosMes(pre,m,filtro){
@@ -573,6 +590,19 @@ function quadroReducao(L){
   r.part.add(x.part);r.merc+=x.vc-x.ipi-x.st;r.icms+=x.icmsNota;r.pRed.add(qtd(x.pRed)+'%');r.cst.add(x.cst)});
  return `<li>Itens com redução da base de ICMS (CST 20/70): <b>${R.length}</b></li></ul><div class="scroll" style="max-height:320px;margin:6px 0 12px"><table><thead><tr><th>Tipo</th><th>Código</th><th>Produto</th><th>Fornecedor/cliente</th><th>CST</th><th>Redução da base</th><th class="n">Valor</th><th class="n">ICMS</th><th class="n">Carga efetiva</th></tr></thead><tbody>`+
   Object.values(g).sort((a,b)=>a.tipo.localeCompare(b.tipo)||a.c.localeCompare(b.c)).map(r=>`<tr><td>${r.tipo}</td><td>${esc(r.c)}</td><td>${esc(r.d)}</td><td>${esc([...r.part].slice(0,2).join(', '))}${r.part.size>2?' …':''}</td><td>${esc([...r.cst].join(', '))}</td><td>${esc([...r.pRed].join(', '))}</td><td class="n">${brl(r.merc)}</td><td class="n">${brl(r.icms)}</td><td class="n"><b>${pct(r.merc?r.icms/r.merc:0)}</b></td></tr>`).join('')+'</tbody></table></div><ul>'}
+function quadroConferencia(L){
+ let itens=L.filter(x=>x.t==='NF-e'&&(COMPRAS.includes(x.nat)||x.nat==='Venda')).map(x=>({x,c:conferirReducao(x)})).filter(o=>o.c);
+ let cab=`<h3 style="margin-top:14px">Conferência dos NCMs com redução de base (Conv. ICMS 52/91)</h3><p class="mut">NCMs cadastrados em Configuração: ${(db.config.ncmReducao||[]).map(r=>esc(r.ncm)).join(', ')||'nenhum'}. Carga esperada: ${''}interna e demais interestaduais conforme o cadastro; saída do Sul/Sudeste (exceto ES) para N, NE, CO e ES usa a carga reduzida menor.</p>`;
+ if(!itens.length)return cab+'<p>Nenhum item com esses NCMs nesta competência (se você importou antes desta versão, importe os ZIPs de novo para ler o NCM).</p>';
+ let acimaV=itens.filter(o=>o.x.nat==='Venda'&&o.c.status==='Destacado acima'),acimaC=itens.filter(o=>o.x.nat!=='Venda'&&o.c.status==='Destacado acima');
+ let resumo=`<div class="grid" style="margin:10px 0"><div class="kpi"><span>Itens conferidos</span><b>${itens.length}</b></div><div class="kpi"><span>Itens OK</span><b class="ok">${itens.filter(o=>o.c.status==='OK').length}</b></div>
+  <div class="kpi"><span>Vendas com ICMS a mais</span><b class="${acimaV.length?'bad':'ok'}">${brl(soma(acimaV,o=>o.c.dif))}</b></div><div class="kpi"><span>Compras com crédito acima da carga</span><b class="${acimaC.length?'warn':'ok'}">${brl(soma(acimaC,o=>o.c.dif))}</b></div></div>`;
+ window._conf=itens;
+ return cab+resumo+`<div class="scroll" style="max-height:380px"><table><thead><tr><th>Tipo</th><th>Data</th><th>NF</th><th>NCM</th><th>Código</th><th>Produto</th><th>Parceiro</th><th>UF</th><th class="n">Valor</th><th class="n">ICMS destacado</th><th class="n">Carga destacada</th><th class="n">Carga esperada</th><th class="n">Diferença</th><th>Status</th></tr></thead><tbody>`+
+  itens.sort((a,b)=>(a.c.status==='OK')-(b.c.status==='OK')||a.x.dt.localeCompare(b.x.dt)).map(({x,c})=>`<tr><td>${x.nat==='Venda'?'Venda':'Compra'}</td><td>${esc(x.dt)}</td><td>${esc(x.n)}</td><td>${fmtNcm(x.ncm)}</td><td>${esc(x.c)}</td><td>${esc(x.d)}</td><td>${esc(x.part)}</td><td>${esc(x.ufOrig)}→${esc(x.ufDest)}</td><td class="n">${brl(c.merc)}</td><td class="n">${brl(x.icmsNota)}</td><td class="n">${qtd(c.real)}%</td><td class="n">${qtd(c.esperado)}%</td><td class="n${c.dif>0.01?' neg':''}">${brl(c.dif)}</td><td class="${c.status==='OK'?'ok':c.status==='Destacado acima'?'bad':'warn'}">${c.status}</td></tr>`).join('')+
+  `</tbody></table></div><div class="actions" style="margin-top:8px"><button class="btn gray" onclick="csvConferencia()">Exportar CSV</button></div>`}
+window.csvConferencia=()=>csv('conferencia_ncm_reducao.csv',['Tipo','Data','NF','NCM','Código','Produto','Parceiro','UF origem','UF destino','Valor','ICMS destacado','Carga destacada %','Carga esperada %','Diferença','Status'],
+ (window._conf||[]).map(({x,c})=>[x.nat==='Venda'?'Venda':'Compra',x.dt,x.n,fmtNcm(x.ncm),x.c,x.d,x.part,x.ufOrig,x.ufDest,c.merc,x.icmsNota,c.real,c.esperado,c.dif,c.status]));
 function renderAudit(m){let d=dreMes(m),L=derivar().lancs.filter(x=>x.m===m),skus=[...new Set(d.semCusto.map(x=>x.sku))],rev=L.filter(x=>x.obs.includes('revisar'));
  let fora=Object.values(db.docs).filter(x=>x.dt.startsWith(m)&&x.t==='NF-e'&&!eEmpresa(x.ed)&&!eEmpresa(x.dd)).length;
  $('#auditText').innerHTML=`<p><b>${rotulo(m)}</b> — ${db.closed.includes(m)?'<span class="ok">FECHADA</span>':'<span class="warn">EM CONFERÊNCIA</span>'}</p><ul>
@@ -580,9 +610,10 @@ function renderAudit(m){let d=dreMes(m),L=derivar().lancs.filter(x=>x.m===m),sku
  <li>Itens com CFOP para revisar: <b class="${rev.length?'warn':'ok'}">${rev.length}</b>${rev.length?' — CFOP '+[...new Set(rev.map(x=>x.cfop))].join(', '):''}</li>
  <li>CT-e não creditáveis: <b>${L.filter(x=>x.t==='CT-e'&&x.classif!=='Creditável').length}</b></li>
  <li>NF-e em que a empresa não é emitente nem destinatária: <b class="${fora?'warn':'ok'}">${fora}</b>${fora?' (confira o CNPJ em Configuração)':''}</li>
- ${quadroReducao(L)}<li>Regras de comissão cadastradas: <b class="${db.channels.length?'ok':'warn'}">${db.channels.length}</b></li></ul>
+ ${quadroReducao(L)}</ul>${quadroConferencia(L)}<ul><li>Regras de comissão cadastradas: <b class="${db.channels.length?'ok':'warn'}">${db.channels.length}</b></li></ul>
  <p>O fechamento só é definitivo após conciliar vendas, custos por vigência, documentos fiscais, CT-e, marketplace e financeiro.</p>`}
-function renderConfig(){let c=db.config;$('#cfgCnpj').value=c.cnpjs.join(', ');$('#cfgPis').value=c.pis;$('#cfgCof').value=c.cofins;
+function renderConfig(){let c=db.config;
+ $('#ncmBody').innerHTML=(c.ncmReducao||[]).map((r,i)=>`<tr><td><b>${esc(r.ncm)}</b></td><td class="n">${qtd(r.carga)}%</td><td class="n">${qtd(r.cargaNNE)}%</td><td><button class="link" onclick="delNcm(${i})">Excluir</button></td></tr>`).join('')||'<tr><td colspan="4" class="mut">Nenhum NCM cadastrado.</td></tr>';$('#cfgCnpj').value=c.cnpjs.join(', ');$('#cfgPis').value=c.pis;$('#cfgCof').value=c.cofins;
  $('#cfgExDeb').checked=c.exDeb;$('#cfgExCred').checked=c.exCred;$('#cfgIpi').checked=c.ipi;$('#cfgSt').checked=c.st;
  let s=sugerirCnpj().slice(0,5);$('#cnpjSuggest').innerHTML=s.length?'<span class="mut">CNPJs que mais aparecem nos XMLs:</span> '+s.map(([x,n,q])=>`<span class="pill">${esc(x)} — ${esc(n)} (${q})</span>`).join(' '):''}
 function render(){
@@ -628,6 +659,9 @@ $('#vdBusca').oninput=$('#cpBusca').oninput=render;
 $('#saveCfg').onclick=()=>{let c=db.config;c.cnpjs=$('#cfgCnpj').value.split(/[,;\s]+/).map(digits).filter(x=>x.length===14||x.length===11);
  c.pis=num('#cfgPis');c.cofins=num('#cfgCof');c.exDeb=$('#cfgExDeb').checked;c.exCred=$('#cfgExCred').checked;c.ipi=$('#cfgIpi').checked;c.st=$('#cfgSt').checked;
  alert('Configuração salva. Documentos recalculados.');changed()};
+$('#addNcm').onclick=()=>{let n=digits($('#ncmNovo').value);if(n.length<4)return alert('Informe o NCM (pelo menos 4 dígitos).');
+ db.config.ncmReducao=(db.config.ncmReducao||[]).filter(r=>digits(r.ncm)!==n);db.config.ncmReducao.push({ncm:fmtNcm(n),carga:num('#ncmCarga'),cargaNNE:num('#ncmCargaNNE')||num('#ncmCarga')});$('#ncmNovo').value='';changed()};
+window.delNcm=i=>{db.config.ncmReducao.splice(i,1);changed()};
 $('#closeMonth').onclick=()=>{let m=$('#month').value;if(!db.closed.includes(m))db.closed.push(m);changed()};
 $('#openMonth').onclick=()=>{db.closed=db.closed.filter(x=>x!==$('#month').value);changed()};
 $('#month').onchange=()=>{let m=$('#month').value;$('#expMonth').value=$('#exMonth').value=m;render()};

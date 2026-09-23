@@ -7,7 +7,7 @@ TRANSPORTADORA = "44444444000144"
 
 
 def _item(n, cfop, v_prod, icms, v_ipi=0.0, cst_pis="01", v_st=0.0, v_frete=0.0, codigo=None, q=10,
-          p_red=0.0, p_icms=18, difal=None):
+          p_red=0.0, p_icms=18, difal=None, ncm="48201000"):
     ipi = (f"<IPI><cEnq>999</cEnq><IPITrib><CST>50</CST><vBC>{v_prod}</vBC><pIPI>5</pIPI>"
            f"<vIPI>{v_ipi:.2f}</vIPI></IPITrib></IPI>") if v_ipi else ""
     frete = f"<vFrete>{v_frete:.2f}</vFrete>" if v_frete else ""
@@ -18,7 +18,7 @@ def _item(n, cfop, v_prod, icms, v_ipi=0.0, cst_pis="01", v_st=0.0, v_frete=0.0,
                .format(v_prod, difal[1], difal[2], difal[3], difal[0])) if difal else ""
     return f"""
     <det nItem="{n}">
-      <prod><cProd>{codigo or f"P{n}"}</cProd><xProd>Produto {n}</xProd><NCM>48201000</NCM><CFOP>{cfop}</CFOP>
+      <prod><cProd>{codigo or f"P{n}"}</cProd><xProd>Produto {n}</xProd><NCM>{ncm}</NCM><CFOP>{cfop}</CFOP>
         <qCom>{q}</qCom><vProd>{v_prod:.2f}</vProd>{frete}</prod>
       <imposto>
         <ICMS><{grupo}><orig>0</orig><CST>{cst}</CST>{red}<vBC>{v_prod:.2f}</vBC><pICMS>{p_icms}</pICMS>

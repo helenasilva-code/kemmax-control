@@ -152,9 +152,10 @@ def test_html_completo(tmp_path):
 
 def test_html_reducao_base_e_difal(tmp_path):
     compra = nfe("35260822222222000122550010000000091000000091", FORNECEDOR, EMPRESA,
-                 [_item(1, "5102", 10000.0, 880.0, codigo="MAQ-F", q=5, p_red=26.67, p_icms=12)], data="2026-08-02")
+                 [_item(1, "5102", 10000.0, 880.0, codigo="MAQ-F", q=5, p_red=26.67, p_icms=12, ncm="84411090")],
+                 data="2026-08-02")
     venda = nfe("35260811111111000111550010000000081000000081", EMPRESA, CLIENTE,
-                [_item(1, "6108", 3000.0, 264.0, codigo="EXA4", q=1, p_red=26.67, p_icms=12,
+                [_item(1, "6108", 3000.0, 264.0, codigo="EXA4", q=1, p_red=26.67, p_icms=12, ncm="84401090",
                        difal=(246.0, 60.0, 20.5, 12.0))], uf_dest="BA", intermediador=ML)
     caminho = tmp_path / "reducao.zip"
     with zipfile.ZipFile(caminho, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -173,6 +174,12 @@ def test_html_reducao_base_e_difal(tmp_path):
         page.set_input_files("#files", str(caminho))
         page.click("#registerImport")
         page.wait_for_selector("text=Importação concluída.")
+        # documentos lidos por versão anterior (sem NCM) são atualizados ao reimportar, sem duplicar
+        page.evaluate("Object.values(db.docs).forEach(d=>{delete d.v;d.it&&d.it.forEach(i=>delete i.ncm)})")
+        page.click("#registerImport")
+        page.wait_for_function("document.querySelector('#importResult').innerText.includes('atualizados')")
+        assert "2 atualizados" in page.inner_text("#importResult")
+        assert page.evaluate("Object.keys(db.docs).length") == 2
         page.select_option("#month", "2026-08")
 
         page.click("text=NF de Venda")
@@ -180,6 +187,7 @@ def test_html_reducao_base_e_difal(tmp_path):
         assert "BA" in uf and "R$ 246,00" in uf and "R$ 60,00" in uf and "R$ 306,00" in uf
         page.click("#vdBody tr.nf >> nth=0")
         detalhe = page.inner_text("#vdBody")
+        assert "NCM 8440.10.90 (redução Conv. 52/91)" in detalhe
         assert "redução da base 26,67%" in detalhe and "carga efetiva 8,8%" in detalhe
         assert "interna 20,5% − interestadual 12%" in detalhe
 
@@ -190,6 +198,13 @@ def test_html_reducao_base_e_difal(tmp_path):
         page.click("text=Auditoria")
         audit = page.inner_text("#auditText")
         assert "Itens com redução da base de ICMS (CST 20/70): 2" in audit and "8,8%" in audit
+        assert "Conferência dos NCMs com redução de base" in audit
+        linhas = [l for l in audit.splitlines() if "8440.10.90" in l or "8441.10.90" in l]
+        venda_l = [l for l in linhas if l.startswith("Venda")][0]
+        compra_l = [l for l in linhas if l.startswith("Compra")][0]
+        assert "SP→BA" in venda_l and "5,14%" in venda_l and "Destacado acima" in venda_l
+        assert "R$ 109,80" in venda_l.replace("\xa0", " ")
+        assert "SP→SP" in compra_l and "OK" in compra_l
 
         page.click("text=Produtos e Custos")
         page.fill("#purchase", "100")
