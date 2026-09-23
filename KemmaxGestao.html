@@ -1,0 +1,603 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kemmax Gestão • Lucro Real V4</title>
+<style>
+:root{--b:#0b67c2;--d:#0b3b69;--bg:#f4f7fb;--bd:#dce5ef;--tx:#17324d;--mut:#6d8195;--ok:#16794b;--bad:#b42318;--warn:#a15c00}
+*{box-sizing:border-box}body{margin:0;font:14px Arial,sans-serif;background:var(--bg);color:var(--tx)}
+aside{position:fixed;inset:0 auto 0 0;width:235px;background:var(--d);color:white;padding:20px 12px;overflow:auto}
+.brand{font-size:21px;font-weight:700;padding:4px 10px 18px}.brand small{display:block;font-size:11px;font-weight:400;opacity:.7;margin-top:4px}
+nav button{display:block;width:100%;text-align:left;border:0;background:transparent;color:#dbeafa;padding:10px 12px;border-radius:8px;cursor:pointer;margin:2px 0;font-size:14px}
+nav button.active,nav button:hover{background:#ffffff18;color:white}
+main{margin-left:235px;padding:24px}.top{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:18px}
+h1{font-size:24px;margin:0}h2{margin:0 0 14px}h3{margin:0 0 10px}.mut{color:var(--mut);font-size:12px}
+.card{background:white;border:1px solid var(--bd);border-radius:12px;padding:16px;box-shadow:0 1px 2px #17324d0d;margin-bottom:16px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.kpi b{display:block;font-size:22px;margin-top:7px}.kpi span{font-size:12px;color:var(--mut)}
+.actions{display:flex;gap:8px;align-items:end;flex-wrap:wrap}label{display:grid;gap:5px;font-size:12px;color:var(--mut)}
+input,select{padding:9px;border:1px solid var(--bd);border-radius:7px;background:white;min-width:120px;font:inherit}
+input[type=checkbox]{min-width:0}
+button.primary,.btn{border:0;border-radius:7px;padding:9px 13px;background:var(--b);color:white;cursor:pointer;font:inherit}.btn.gray{background:#66788a}.btn.red{background:#b42318}
+.link{border:0;background:none;color:var(--b);cursor:pointer;padding:0;font:inherit;text-decoration:underline}
+table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:8px 9px;border-bottom:1px solid var(--bd);text-align:left;white-space:nowrap}th{background:#f8fafc;color:#52677b;position:sticky;top:0;z-index:1}
+td.n,th.n{text-align:right}tr.tot td{font-weight:700;background:#f8fafc}tr.sub td{font-weight:700}
+.scroll{overflow:auto;max-height:560px}.page{display:none}.page.active{display:block}.ok{color:var(--ok);font-weight:700}.bad{color:var(--bad);font-weight:700}.warn{color:var(--warn);font-weight:700}
+.neg{color:var(--bad)}
+.pill{display:inline-block;padding:3px 7px;border-radius:99px;background:#e8f2fd;color:var(--b);font-size:11px}.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.note{border-left:4px solid var(--b);padding:10px 12px;background:#eef6ff;border-radius:6px}.note.red{border-left-color:var(--bad);background:#fdf0ef}.note.yel{border-left-color:var(--warn);background:#fff7e8}
+.right{text-align:right}.chk{display:flex;gap:6px;align-items:center;font-size:13px;color:var(--tx)}
+@media(max-width:1000px){aside{position:static;width:auto}main{margin:0;padding:16px}.grid,.two{grid-template-columns:1fr 1fr}}
+</style></head><body>
+<aside><div class="brand">kemmax <small>Gestão • Lucro Real • V4</small></div><nav id="nav">
+<button class="active" data-p="dash">Dashboard</button><button data-p="import">Importações</button>
+<button data-p="prod">Produtos e Custos</button><button data-p="rent">Rentabilidade por Produto</button>
+<button data-p="channels">Canais e Tarifas</button><button data-p="cte">CT-e e Créditos</button>
+<button data-p="compras">Compras Mensais</button><button data-p="apur">Apuração Impostos</button>
+<button data-p="dre">DRE Mensal</button><button data-p="finance">Financeiro / Despesas</button>
+<button data-p="audit">Auditoria</button><button data-p="config">Configuração e Backup</button>
+</nav></aside>
+<main>
+<div class="top"><div><h1 id="title">Dashboard</h1><div class="mut">Base gerencial separando DRE, CMV financeiro e fluxo de caixa. Tudo fica neste computador.</div></div>
+<label>Competência<select id="month"></select></label></div>
+
+<section class="page active" id="dash">
+<div id="dashAlert"></div>
+<div class="grid">
+<div class="card kpi"><span>Faturamento</span><b id="kFat">R$ 0,00</b></div>
+<div class="card kpi"><span>Compras do mês</span><b id="kBuy">R$ 0,00</b></div>
+<div class="card kpi"><span>CMV DRE vendido</span><b id="kCmv">R$ 0,00</b></div>
+<div class="card kpi"><span>Resultado DRE (antes IRPJ/CSLL)</span><b id="kRes">R$ 0,00</b></div>
+</div>
+<div class="grid">
+<div class="card kpi"><span>Comissões + tarifas</span><b id="kCom">R$ 0,00</b></div>
+<div class="card kpi"><span>Fretes de venda</span><b id="kFrete">R$ 0,00</b></div>
+<div class="card kpi"><span>Créditos CT-e</span><b id="kCred">R$ 0,00</b></div>
+<div class="card kpi"><span>Margem de contribuição</span><b id="kMc">R$ 0,00</b></div>
+</div>
+<div class="two"><div class="card"><h3>Fechamento da competência</h3><div id="closeStatus" class="note"></div></div>
+<div class="card"><h3>Qualidade dos dados</h3><div id="quality"></div></div></div>
+</section>
+
+<section class="page" id="import"><div class="card"><h2>Central de Importações</h2>
+<p>Envie os ZIPs de cada mês (pode mandar todos de uma vez). NF-e de compra e venda, CT-e e cancelamentos são lidos automaticamente. Um documento é contado uma vez só pela chave, mesmo que apareça em mais de uma pasta.</p>
+<div class="actions">
+<label>Arquivos (.zip ou .xml)<input type="file" id="files" multiple accept=".xml,.zip"></label>
+<button class="primary" id="registerImport">Importar</button></div>
+<div id="importProgress" style="display:none;margin-top:12px">
+  <div style="height:10px;background:#e8eef5;border-radius:8px;overflow:hidden"><div id="progressBar" style="height:100%;width:0;background:#0b67c2"></div></div>
+  <div class="mut" id="progressText" style="margin-top:6px">Preparando...</div>
+</div>
+<div id="importResult" style="margin-top:12px"></div>
+<div class="note" style="margin-top:12px">Nenhum arquivo é enviado para a internet: o ZIP é aberto aqui no navegador e os dados ficam gravados neste computador (IndexedDB). Use Chrome ou Edge atualizados. Faça backup em <b>Configuração e Backup</b>.</div>
+</div>
+<div class="card"><h3>Documentos por competência</h3><div class="scroll"><table><thead><tr><th>Competência</th><th class="n">NF-e venda</th><th class="n">NF-e compra</th><th class="n">Outras NF-e</th><th class="n">CT-e</th><th class="n">Cancelados</th></tr></thead><tbody id="docsBody"></tbody></table></div></div>
+<div class="card"><h3>Histórico de importações</h3><div class="scroll"><table><thead><tr><th>Data</th><th>Arquivo</th><th class="n">XML lidos</th><th class="n">Novos</th><th class="n">Repetidos</th><th class="n">Cancelamentos</th><th class="n">Erros</th></tr></thead><tbody id="importsBody"></tbody></table></div></div></section>
+
+<section class="page" id="prod"><div class="card"><h2>Produtos e Custos por Vigência</h2>
+<div class="actions">
+<label>SKU<input id="sku"></label><label>Produto<input id="pname"></label><label>Vigência (a partir de)<input type="date" id="vig"></label>
+<label>Compra/NF (un.)<input type="number" step=".01" id="purchase"></label><label>IPI R$ (un.)<input type="number" step=".01" id="ipi"></label>
+<label>ICMS %<input type="number" step=".01" id="icmspct" placeholder="ex.: 12"></label>
+<label>Pago adicional (por fora)<input type="number" step=".01" id="outside"></label><label>Embalagem<input type="number" step=".01" id="pack"></label>
+<label>Outros<input type="number" step=".01" id="other"></label>
+<label>Créd. ICMS<input type="number" step=".01" id="icmscred"></label><label>Créd. PIS<input type="number" step=".01" id="piscred"></label>
+<label>Créd. COFINS<input type="number" step=".01" id="cofcred"></label>
+<button class="btn gray" id="calcCred">Calcular créditos</button>
+<button class="primary" id="addProd">Salvar vigência</button></div>
+<p class="mut"><b>CMV DRE</b> = Compra/NF + IPI + embalagem + outros − créditos (ICMS, PIS, COFINS). <b>CMV Financeiro</b> = CMV DRE + pago adicional. O pago adicional não gera crédito. "Calcular créditos" usa o ICMS % e as alíquotas de PIS/COFINS (base = NF + IPI − ICMS). A venda usa o custo da vigência válida na data da venda.</p>
+<div id="prodMsg"></div></div>
+<div class="card"><div class="actions" style="margin-bottom:10px"><label>Buscar<input id="prodSearch" placeholder="SKU ou nome"></label><button class="btn gray" id="prodCsv">Exportar CSV</button></div>
+<div class="scroll"><table><thead><tr><th>SKU</th><th>Produto</th><th>Vigência</th><th class="n">Compra/NF</th><th class="n">IPI</th><th class="n">Adicional</th><th class="n">Embalagem</th><th class="n">Outros</th><th class="n">Créd. ICMS</th><th class="n">Créd. PIS</th><th class="n">Créd. COFINS</th><th class="n">CMV DRE</th><th class="n">CMV Financeiro</th><th></th></tr></thead><tbody id="prodBody"></tbody></table></div></div></section>
+
+<section class="page" id="rent"><div class="card"><h2>Rentabilidade por Produto</h2>
+<p>Venda − impostos (ICMS, DIFAL, PIS, COFINS) − comissões/tarifas do canal − frete (CT-e da venda) − CMV DRE vigente na data da venda.</p>
+<div class="actions"><label>Período<select id="rentPeriod"><option value="m">Competência selecionada</option><option value="y">Ano todo</option></select></label>
+<label>Canal<select id="rentChannel"></select></label><label>Agrupar<select id="rentGroup"><option value="sku">Produto</option><option value="skuch">Produto e canal</option></select></label>
+<button class="btn gray" id="rentCsv">Exportar CSV</button></div></div>
+<div class="grid"><div class="card kpi"><span>Venda</span><b id="rVenda">R$ 0,00</b></div><div class="card kpi"><span>Resultado DRE</span><b id="rRes">R$ 0,00</b></div><div class="card kpi"><span>Resultado financeiro</span><b id="rFin">R$ 0,00</b></div><div class="card kpi"><span>Produtos com prejuízo</span><b id="rNeg">0</b></div></div>
+<div class="card"><div class="scroll"><table><thead><tr><th>SKU</th><th>Produto</th><th>Canal</th><th class="n">Qtd.</th><th class="n">Venda</th><th class="n">Impostos</th><th class="n">Comissão/tarifas</th><th class="n">Frete</th><th class="n">CMV DRE</th><th class="n">Resultado DRE</th><th class="n">Margem</th><th class="n">Pago adicional</th><th class="n">Resultado financeiro</th><th>Situação</th></tr></thead><tbody id="rentBody"></tbody></table></div></div></section>
+
+<section class="page" id="channels"><div class="card"><h2>Identificação dos canais</h2>
+<p class="mut">A venda é ligada ao canal pelo <b>CNPJ do intermediador</b> que vai na NF-e. Sem intermediador, o sistema tenta pelo nome da pasta/arquivo do ZIP (ex.: pasta "Mercado Livre"). A devolução herda o canal da venda original.</p>
+<div class="actions"><label>Canal<input id="mapName" placeholder="Mercado Livre"></label><label>CNPJ do intermediador<input id="mapCnpj"></label><button class="primary" id="addMap">Salvar</button></div>
+<div class="scroll" style="margin-top:10px"><table><thead><tr><th>Canal</th><th>CNPJ intermediador</th><th class="n">Vendas no ano</th><th></th></tr></thead><tbody id="mapBody"></tbody></table></div>
+<div id="unknownIntermed" style="margin-top:10px"></div></div>
+<div class="card"><h2>Tarifas por vigência</h2>
+<div class="actions"><label>Canal<input id="chName" placeholder="Mercado Livre" list="chList"></label><datalist id="chList"></datalist><label>Vigência<input type="date" id="chVig"></label><label>Comissão %<input type="number" step=".01" id="chPct"></label><label>Tarifa fixa R$ (por unidade)<input type="number" step=".01" id="chFixed"></label><label>Antecipação %<input type="number" step=".01" id="chAnt"></label><label>Outras %<input type="number" step=".01" id="chOther"></label><button class="primary" id="addChannel">Salvar regra</button></div>
+<p class="mut">Comissão, antecipação e outras % incidem sobre o valor da venda; a tarifa fixa é por unidade vendida. Vale a regra com a vigência mais recente até a data da venda. Na devolução a comissão é estornada.</p>
+<table><thead><tr><th>Canal</th><th>Vigência</th><th class="n">Comissão</th><th class="n">Fixa</th><th class="n">Antecipação</th><th class="n">Outras</th><th></th></tr></thead><tbody id="channelBody"></tbody></table></div></section>
+
+<section class="page" id="cte"><div class="card"><h2>CT-e e Créditos Mensais</h2><div class="grid"><div class="kpi"><span>CT-e únicos</span><b id="cteN">0</b></div><div class="kpi"><span>Valor fretes</span><b id="cteV">R$ 0,00</b></div><div class="kpi"><span>ICMS destacado</span><b id="cteI">R$ 0,00</b></div><div class="kpi"><span>Crédito total aprovado</span><b id="cteC">R$ 0,00</b></div></div>
+<p class="mut">Uma chave de CT-e é um documento: se aparecer em Meli e ERP, não é somado duas vezes. Regra automática: crédito quando a empresa é a <b>tomadora</b> do frete — frete sobre vendas (art. 3º, IX, Lei 10.833) e frete sobre compras — ICMS destacado + PIS 1,65% + COFINS 7,6%. Você pode mudar a classificação de cada CT-e.</p>
+<div class="actions"><label>Mostrar<select id="cteFilter"><option value="">Todos</option><option>Creditável</option><option>Não creditável</option></select></label><button class="btn gray" id="cteCsv">Exportar CSV</button></div></div>
+<div class="card"><div class="scroll"><table><thead><tr><th>Data</th><th>Número</th><th>Emitente</th><th>Fonte</th><th>Tipo de frete</th><th class="n">Valor</th><th class="n">ICMS</th><th class="n">PIS</th><th class="n">COFINS</th><th class="n">Crédito total</th><th>Classificação</th><th>Motivo</th></tr></thead><tbody id="cteBody"></tbody></table></div></div></section>
+
+<section class="page" id="compras"><div class="card"><h2>Compras Mensais</h2><p>Compras são exibidas separadamente do CMV DRE: comprar mercadoria no mês não significa reconhecer todo o valor como despesa no DRE.</p>
+<div class="grid"><div class="kpi"><span>Notas de compra</span><b id="cpN">0</b></div><div class="kpi"><span>Valor das compras</span><b id="cpV">R$ 0,00</b></div><div class="kpi"><span>Créditos ICMS + PIS + COFINS</span><b id="cpC">R$ 0,00</b></div><div class="kpi"><span>Custo líquido</span><b id="cpL">R$ 0,00</b></div></div>
+<div class="actions" style="margin-top:12px"><button class="btn gray" id="cpCsv">Exportar CSV</button></div></div>
+<div class="card"><h3>Por natureza</h3><table><thead><tr><th>Natureza</th><th class="n">Notas</th><th class="n">Valor</th><th class="n">IPI</th><th class="n">ICMS-ST</th><th class="n">Créd. ICMS</th><th class="n">Créd. PIS</th><th class="n">Créd. COFINS</th><th class="n">Custo líquido</th></tr></thead><tbody id="cpNat"></tbody></table></div>
+<div class="card"><h3>Notas de entrada</h3><div class="scroll"><table><thead><tr><th>Data</th><th>NF</th><th>Fornecedor</th><th>Natureza</th><th>CFOP</th><th class="n">Valor</th><th class="n">IPI</th><th class="n">ICMS-ST</th><th class="n">Créd. ICMS</th><th class="n">Créd. PIS</th><th class="n">Créd. COFINS</th><th class="n">Custo líquido</th><th>Observação</th></tr></thead><tbody id="cpBody"></tbody></table></div></div></section>
+
+<section class="page" id="apur"><div class="card"><h2>Apuração ICMS / PIS / COFINS</h2>
+<p class="mut">Débitos das vendas − créditos das compras, devoluções, CT-e e créditos extras. O saldo credor passa para o mês seguinte.</p>
+<div class="actions"><label>Saldo credor ICMS em 31/12 anterior<input type="number" step=".01" id="sIcms"></label><label>Saldo credor PIS<input type="number" step=".01" id="sPis"></label><label>Saldo credor COFINS<input type="number" step=".01" id="sCof"></label><button class="btn gray" id="apCsv">Exportar CSV</button></div></div>
+<div class="card"><div class="scroll"><table><thead id="apHead"></thead><tbody id="apBody"></tbody></table></div></div>
+<div class="card"><h3>Créditos extras (sem XML): armazenagem FULL, energia, aluguel, depreciação, CIAP</h3>
+<div class="actions"><label>Competência<input type="month" id="exMonth"></label><label>Descrição<input id="exDesc" placeholder="Armazenagem FULL"></label><label>Base PIS/COFINS R$<input type="number" step=".01" id="exBase"></label><label>Crédito ICMS R$<input type="number" step=".01" id="exIcms"></label><button class="primary" id="addExtra">Adicionar</button></div>
+<table style="margin-top:10px"><thead><tr><th>Competência</th><th>Descrição</th><th class="n">Base</th><th class="n">PIS</th><th class="n">COFINS</th><th class="n">ICMS</th><th></th></tr></thead><tbody id="exBody"></tbody></table></div></section>
+
+<section class="page" id="dre"><div class="card"><h2>DRE Mensal</h2><p class="mut">Janeiro até a competência selecionada. IRPJ 15% + adicional 10% (acima de R$ 20 mil/mês) e CSLL 9% estimados mês a mês, sem ajustes do LALUR — estimativa gerencial, confirme com a contabilidade.</p>
+<div class="actions"><button class="btn gray" id="dreCsv">Exportar CSV</button></div></div>
+<div class="card"><div class="scroll" style="max-height:none"><table><thead id="dreHead"></thead><tbody id="dreBody"></tbody></table></div></div></section>
+
+<section class="page" id="finance"><div class="card"><h2>Financeiro / Despesas por competência</h2><p>Despesas que não vêm dos XMLs, para fechar a DRE. Empréstimo principal, compra de estoque e imobilizado não são despesa operacional.</p>
+<div class="actions"><label>Competência<input type="month" id="expMonth"></label><label>Categoria<select id="expCat"><option>ADS / Publicidade</option><option>Pessoal e pró-labore</option><option>Despesas fixas</option><option>Serviços</option><option>Outras despesas</option><option>Receitas financeiras</option><option>Despesas financeiras</option></select></label><label>Descrição<input id="expDesc"></label><label>Valor R$<input type="number" step=".01" id="expVal"></label><button class="primary" id="addExp">Adicionar</button></div></div>
+<div class="card"><table><thead><tr><th>Competência</th><th>Categoria</th><th>Descrição</th><th class="n">Valor</th><th></th></tr></thead><tbody id="expBody"></tbody></table></div></section>
+
+<section class="page" id="audit"><div class="card"><h2>Auditoria e Fechamento</h2><div id="auditText"></div><button class="primary" id="closeMonth">Fechar competência selecionada</button> <button class="btn gray" id="openMonth">Reabrir competência</button>
+<p class="mut">Competência fechada não recebe novos documentos na importação.</p></div></section>
+
+<section class="page" id="config"><div class="card"><h2>Empresa</h2>
+<div class="actions"><label style="min-width:340px">CNPJ(s) da empresa — matriz e filiais, separados por vírgula<input id="cfgCnpj" style="min-width:340px"></label><button class="primary" id="saveCfg">Salvar</button></div>
+<div id="cnpjSuggest" style="margin-top:10px"></div>
+<h3 style="margin-top:18px">Regras de cálculo</h3>
+<div class="actions"><label>PIS %<input type="number" step=".01" id="cfgPis"></label><label>COFINS %<input type="number" step=".01" id="cfgCof"></label></div>
+<div style="display:grid;gap:6px;margin-top:10px">
+<label class="chk"><input type="checkbox" id="cfgExDeb"> Excluir ICMS da base do PIS/COFINS nas vendas (STF Tema 69)</label>
+<label class="chk"><input type="checkbox" id="cfgExCred"> Excluir ICMS da base do crédito nas compras (Lei 14.592/2023)</label>
+<label class="chk"><input type="checkbox" id="cfgIpi"> Incluir IPI não recuperável na base do crédito</label>
+<label class="chk"><input type="checkbox" id="cfgSt"> Incluir ICMS-ST na base do crédito (tema controverso)</label></div>
+<p class="mut">Mudou alguma regra? Salve: todos os documentos são recalculados na hora.</p></div>
+<div class="card"><h2>Backup</h2><p>Os dados ficam no navegador deste computador. Se limpar os dados do navegador, eles se perdem: <b>baixe um backup toda semana</b>.</p>
+<div class="actions"><button class="primary" id="bkDown">Baixar backup</button><label>Restaurar backup<input type="file" id="bkUp" accept=".json"></label><button class="btn gray" id="storageInfo">Uso do armazenamento</button><button class="btn red" id="wipe">Apagar todos os dados</button></div></div></section>
+</main>
+<script>
+"use strict";
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const brl=n=>{n=Number(n)||0;if(Math.abs(n)<0.005)n=0;return n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})};
+const pct=n=>((Number(n)||0)*100).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%';
+const qtd=n=>(Number(n)||0).toLocaleString('pt-BR',{maximumFractionDigits:2});
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const digits=s=>String(s??'').replace(/\D/g,'');
+const cls=n=>n<-0.004?' neg':'';
+const K='kemmax_gestao_lr_v4';
+const MESES=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+const SEM_CANAL='Venda direta / outros';
+const CANAIS_PADRAO=[['Mercado Livre','03007331000141'],['Shopee','35635824000112'],['Amazon','15436940000103'],['Magalu','47960950000121']];
+
+let db=null, idb=null, saveTimer=null, versao=0, cache=null;
+function novoDb(){return {config:{cnpjs:[],pis:1.65,cofins:7.6,exDeb:true,exCred:true,ipi:true,st:false},
+ docs:{},canceled:{},products:[],channels:[],channelMap:CANAIS_PADRAO.map(([name,cnpj])=>({name,cnpj})),
+ cteOverride:{},imports:[],expenses:[],extras:[],closed:[],saldos:{icms:0,pis:0,cofins:0}}}
+
+// ------------------------------------------------------------------ IndexedDB
+function openDB(){return new Promise((res,rej)=>{let r=indexedDB.open('KemmaxGestaoLucroReal',4);
+ r.onupgradeneeded=()=>{let d=r.result;if(!d.objectStoreNames.contains('state'))d.createObjectStore('state')};
+ r.onsuccess=()=>{idb=r.result;res()};r.onerror=()=>rej(r.error)})}
+const idbGet=k=>new Promise((res,rej)=>{let r=idb.transaction('state','readonly').objectStore('state').get(k);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+const idbPut=(k,v)=>new Promise((res,rej)=>{let tx=idb.transaction('state','readwrite');tx.objectStore('state').put(v,k);tx.oncomplete=res;tx.onerror=()=>rej(tx.error)});
+async function saveNow(){clearTimeout(saveTimer);if(idb)await idbPut(K,db)}
+function changed(){versao++;cache=null;clearTimeout(saveTimer);saveTimer=setTimeout(saveNow,200);render()}
+async function loadDB(){await openDB();let x=await idbGet(K);db=Object.assign(novoDb(),x||{});
+ db.config=Object.assign(novoDb().config,db.config||{});
+ if(!x){ // traz cadastros da V3, se existirem
+  try{let v3=await idbGet('kemmax_gestao_lr_v3');if(v3){db.products=(v3.products||[]).map(p=>calcProduto(p));
+   db.channels=v3.channels||[];db.expenses=(v3.expenses||[]).filter(e=>e.cat);db.closed=v3.closed||[]}}catch(e){}
+ }
+ await saveNow()}
+
+// ------------------------------------------------------------------ leitura de XML
+const kid=(el,t)=>el?[...el.children].find(c=>c.localName===t)||null:null;
+const kids=(el,t)=>el?[...el.children].filter(c=>c.localName===t):[];
+const at=(el,...p)=>p.reduce((e,t)=>kid(e,t),el);
+const tx=(el,...p)=>{let e=p.length?at(el,...p):el;return e?(e.textContent||'').trim():''};
+const nm=(el,...p)=>{let v=parseFloat(tx(el,...p));return isFinite(v)?v:0};
+const any=(el,t)=>el?el.getElementsByTagNameNS('*',t)[0]||null:null;
+const docId=el=>el?(tx(el,'CNPJ')||tx(el,'CPF')):'';
+function decodificar(bytes){
+ let ini=new TextDecoder('latin1').decode(bytes.slice(0,200)), m=ini.match(/encoding=["']([\w-]+)["']/i);
+ try{return new TextDecoder(m?m[1]:'utf-8').decode(bytes)}catch(e){return new TextDecoder('utf-8').decode(bytes)}
+}
+function lerNfe(root,path){
+ let inf=any(root,'infNFe'),ide=kid(inf,'ide'),emit=kid(inf,'emit'),dest=kid(inf,'dest'),tot=at(inf,'total','ICMSTot'),im=kid(inf,'infIntermed');
+ let k=digits(inf.getAttribute('Id'))||tx(any(root,'infProt'),'chNFe');
+ let refs=ide?[...ide.getElementsByTagNameNS('*','refNFe')].map(r=>r.textContent.trim()):[];
+ let it=kids(inf,'det').map(det=>{let pr=kid(det,'prod'),imp=kid(det,'imposto'),g=kid(imp,'ICMS'),g1=g&&g.firstElementChild,
+   pis=kid(imp,'PIS'),p1=pis&&pis.firstElementChild,cof=kid(imp,'COFINS'),c1=cof&&cof.firstElementChild,ipi=at(imp,'IPI','IPITrib'),df=kid(imp,'ICMSUFDest');
+   return {c:tx(pr,'cProd'),d:tx(pr,'xProd'),cfop:tx(pr,'CFOP'),q:nm(pr,'qCom'),vp:nm(pr,'vProd'),vd:nm(pr,'vDesc'),vf:nm(pr,'vFrete'),vs:nm(pr,'vSeg'),vo:nm(pr,'vOutro'),
+     ipi:ipi?nm(ipi,'vIPI'):0,cstPis:p1?tx(p1,'CST'):'',vPis:p1?nm(p1,'vPIS'):0,vCof:c1?nm(c1,'vCOFINS'):0,difal:df?nm(df,'vICMSUFDest')+nm(df,'vFCPUFDest'):0,
+     bc:g1?nm(g1,'vBC'):0,icms:g1?nm(g1,'vICMS'):0,st:g1?nm(g1,'vICMSST'):0,sn:g1?nm(g1,'vCredICMSSN'):0}});
+ return {t:'NF-e',k,n:tx(ide,'nNF'),dt:(tx(ide,'dhEmi')||tx(ide,'dEmi')).slice(0,10),tp:tx(ide,'tpNF'),fin:tx(ide,'finNFe'),
+  ed:docId(emit),en:tx(emit,'xNome'),dd:docId(dest),dn:tx(dest,'xNome'),vt:nm(tot,'vNF'),im:im?tx(im,'CNPJ'):'',ref:refs[0]||'',it,p:path}
+}
+const TOMA={'0':'rem','1':'exped','2':'receb','3':'dest'};
+function lerCte(root,path){
+ let inf=any(root,'infCte'),ide=kid(inf,'ide'),emit=kid(inf,'emit'),partes={};
+ for(let p of ['rem','exped','receb','dest'])partes[p]=kid(inf,p);
+ let t4=kid(ide,'toma4'),t3=kid(ide,'toma3')||kid(ide,'toma03'),tom;
+ if(t4)tom=t4;else tom=partes[TOMA[t3?tx(t3,'toma'):tx(ide,'toma')]||'rem'];
+ let g=kid(kid(inf,'imp'),'ICMS'),g1=g&&g.firstElementChild;
+ let nfes=[...inf.getElementsByTagNameNS('*','infNFe')].map(e=>tx(e,'chave')).filter(Boolean);
+ return {t:'CT-e',k:digits(inf.getAttribute('Id')),n:tx(ide,'nCT'),dt:tx(ide,'dhEmi').slice(0,10),cfop:tx(ide,'CFOP'),
+  ed:docId(emit),en:tx(emit,'xNome'),rd:docId(partes.rem),rn:tx(partes.rem,'xNome'),dd:docId(partes.dest),dn:tx(partes.dest,'xNome'),
+  td:docId(tom),tn:tx(tom,'xNome'),vt:nm(kid(inf,'vPrest'),'vTPrest'),icms:g1?nm(g1,'vICMS')+nm(g1,'vICMSOutraUF'):0,
+  sn:!!(g1&&g1.localName==='ICMSSN'),nfes,p:path}
+}
+function lerXml(bytes,path){
+ let doc=new DOMParser().parseFromString(decodificar(bytes).replace(/^﻿/,''),'application/xml');
+ if(doc.getElementsByTagName('parsererror').length)throw new Error('XML inválido');
+ if(any(doc,'infCte'))return lerCte(doc,path);
+ if(any(doc,'infNFe'))return lerNfe(doc,path);
+ let ev=any(doc,'infEvento');
+ if(ev){let tp=tx(ev,'tpEvento');return {t:'Evento',k:tx(ev,'chNFe')||tx(ev,'chCTe'),cancel:tp==='110111'||tp==='110112'}}
+ if(any(doc,'resNFe'))throw new Error('Resumo de NF-e: baixe o XML completo');
+ return null;
+}
+
+// ------------------------------------------------------------------ ZIP no navegador
+const u16=(v,o)=>v[o]|(v[o+1]<<8), u32=(v,o)=>(v[o]|(v[o+1]<<8)|(v[o+2]<<16)|(v[o+3]<<24))>>>0;
+async function inflateRaw(bytes){
+ if(typeof DecompressionStream==='undefined')throw new Error('Este navegador não abre ZIP. Use Chrome ou Edge atualizado.');
+ return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer())}
+async function lerZip(buf,prefixo,onEntry,onProg){
+ let eocd=-1;for(let i=buf.length-22;i>=Math.max(0,buf.length-65557);i--)if(u32(buf,i)===0x06054b50){eocd=i;break}
+ if(eocd<0)throw new Error('ZIP inválido ou corrompido');
+ let total=u16(buf,eocd+10),p=u32(buf,eocd+16);
+ if(total===0xffff||p===0xffffffff)throw new Error('ZIP grande demais (ZIP64): divida em arquivos menores, por exemplo um por mês');
+ for(let n=0;n<total;n++){
+  if(u32(buf,p)!==0x02014b50)break;
+  let flag=u16(buf,p+8),met=u16(buf,p+10),comp=u32(buf,p+20),nl=u16(buf,p+28),el=u16(buf,p+30),cl=u16(buf,p+32),lo=u32(buf,p+42);
+  let raw=buf.slice(p+46,p+46+nl),name=(flag&0x800)?new TextDecoder().decode(raw):new TextDecoder('latin1').decode(raw);
+  p+=46+nl+el+cl;
+  let low=name.toLowerCase();
+  if(!name.endsWith('/')&&!low.startsWith('__macosx/')&&(low.endsWith('.xml')||low.endsWith('.zip'))){
+   let st=lo+30+u16(buf,lo+26)+u16(buf,lo+28),dado=buf.slice(st,st+comp);
+   if(met===8)dado=await inflateRaw(dado);else if(met!==0)dado=null;
+   if(dado){if(low.endsWith('.zip'))await lerZip(dado,prefixo+name+'/',onEntry,null);else await onEntry(prefixo+name,dado)}
+  }
+  if(onProg&&(n%25===0||n===total-1)){onProg(n+1,total,name);await new Promise(r=>setTimeout(r,0))}
+ }
+}
+function detectChannel(path){
+ let s=String(path||'').toLowerCase();
+ if(/mercado.?livre|meli|ebazar/.test(s))return 'Mercado Livre';
+ if(/shopee/.test(s))return 'Shopee';if(/amazon/.test(s))return 'Amazon';
+ if(/magalu|magazine/.test(s))return 'Magalu';if(/tik.?tok|bytedance/.test(s))return 'TikTok Shop';
+ return '';
+}
+$('#registerImport').onclick=async()=>{
+ let fs=[...$('#files').files];if(!fs.length)return alert('Selecione um ou mais arquivos .zip ou .xml.');
+ $('#importProgress').style.display='block';$('#importResult').innerHTML='';
+ for(let f of fs){
+  let r={file:f.name,date:new Date().toLocaleString('pt-BR'),xml:0,novos:0,rep:0,canc:0,err:0,fechado:0,erros:[]};
+  async function entrada(nome,bytes){
+   r.xml++;let d;
+   try{d=lerXml(bytes,nome)}catch(e){r.err++;if(r.erros.length<50)r.erros.push(nome.split('/').pop()+': '+e.message);return}
+   if(!d||!d.k)return;
+   if(d.t==='Evento'){if(d.cancel&&!db.canceled[d.k]){db.canceled[d.k]=true;delete db.docs[d.k];r.canc++}return}
+   if(db.canceled[d.k])return;
+   if(db.docs[d.k]){r.rep++;return}
+   if(db.closed.includes(d.dt.slice(0,7))){r.fechado++;return}
+   db.docs[d.k]=d;r.novos++;
+  }
+  try{
+   $('#progressText').textContent='Abrindo '+f.name+'...';
+   let buf=new Uint8Array(await f.arrayBuffer());
+   if(f.name.toLowerCase().endsWith('.zip'))await lerZip(buf,f.name+'/',entrada,(n,t,name)=>{
+     $('#progressBar').style.width=(n/t*100).toFixed(1)+'%';$('#progressText').textContent=`${f.name}: ${n.toLocaleString('pt-BR')} de ${t.toLocaleString('pt-BR')} • ${name.split('/').pop()}`});
+   else await entrada(f.name,buf);
+  }catch(e){r.err++;r.erros.push(f.name+': '+e.message)}
+  db.imports.push({file:r.file,date:r.date,xml:r.xml,novos:r.novos,rep:r.rep,canc:r.canc,err:r.err});
+  $('#importResult').insertAdjacentHTML('beforeend',`<div class="note${r.err?' yel':''}" style="margin-bottom:8px"><b>${esc(f.name)}</b>: ${r.xml} XML lidos • <b>${r.novos} novos</b> • ${r.rep} repetidos (não somados) • ${r.canc} cancelamentos${r.fechado?` • ${r.fechado} de competência fechada (ignorados)`:''}${r.err?` • <span class="bad">${r.err} com erro</span><br><span class="mut">${r.erros.map(esc).join('<br>')}</span>`:''}</div>`);
+ }
+ $('#progressBar').style.width='100%';$('#progressText').textContent='Importação concluída.';
+ if(!db.config.cnpjs.length){let s=sugerirCnpj();if(s.length){db.config.cnpjs=[s[0][0]];
+  $('#importResult').insertAdjacentHTML('beforeend',`<div class="note yel">CNPJ da empresa definido automaticamente como <b>${esc(s[0][0])}</b> (${esc(s[0][1])}), o que mais aparece nos XMLs. Confira em <b>Configuração e Backup</b>.</div>`)}}
+ let meses=Object.values(db.docs).map(d=>d.dt.slice(0,7)).filter(Boolean).sort();
+ if(meses.length)$('#month').dataset.want=meses.at(-1);
+ changed();await saveNow();
+};
+function sugerirCnpj(){let c={},nome={};
+ for(let d of Object.values(db.docs)){let ps=d.t==='NF-e'?[[d.ed,d.en],[d.dd,d.dn]]:[[d.td,d.tn]];
+  for(let [x,n] of ps)if(x&&x.length===14){c[x]=(c[x]||0)+1;nome[x]=nome[x]||n}}
+ return Object.entries(c).sort((a,b)=>b[1]-a[1]).map(([x,q])=>[x,nome[x],q])}
+
+// ------------------------------------------------------------------ regras fiscais
+const CFOP_ENT={},CFOP_SAI={};
+const def=(t,list,v)=>list.split(' ').forEach(s=>t[s]=v);
+def(CFOP_ENT,'101 111 116 120 122 124 125 126 401',['Compra para industrialização',1,1]);
+def(CFOP_ENT,'102 113 117 118 121',['Compra para revenda',1,1]);CFOP_ENT['403']=['Compra para revenda',0,1];
+def(CFOP_ENT,'201 202 410 411',['Devolução de venda',1,1]);def(CFOP_ENT,'406 551',['Ativo imobilizado',0,0]);
+def(CFOP_ENT,'407 556',['Uso e consumo',0,0]);CFOP_ENT['910']=['Bonificação / brinde',1,0];def(CFOP_ENT,'151 152 153',['Transferência',1,0]);
+def(CFOP_SAI,'101 102 103 104 105 106 107 108 109 110 113 114 115 116 117 118 119 120 122 123 401 402 403',['Venda',1,1]);
+CFOP_SAI['405']=['Venda',0,1];def(CFOP_SAI,'201 202 410 411',['Devolução de compra',1,1]);CFOP_SAI['551']=['Venda de ativo',1,0];
+CFOP_SAI['910']=['Bonificação / brinde',1,0];def(CFOP_SAI,'151 152 153',['Transferência',1,0]);
+const CST_SEM_DEBITO=new Set(['04','05','06','07','08','09','49']),CST_FORN_SEM_CRED=new Set(['04','05','06','07','08','09']);
+const COMPRAS=['Compra para revenda','Compra para industrialização'];
+function eEmpresa(x){x=digits(x);return !!x&&db.config.cnpjs.map(digits).includes(x)}
+function base(d){return {k:d.k,t:d.t,n:d.n,dt:d.dt,m:d.dt.slice(0,7),dir:'Entrada',part:'',c:'',d:'',q:0,cfop:'',nat:'',vc:0,rec:0,
+ icmsD:0,icmsC:0,st:0,ipi:0,difal:0,bpc:0,pisD:0,cofD:0,pisC:0,cofC:0,custo:0,obs:''}}
+function classificarNfe(d){
+ let cfg=db.config,aP=cfg.pis/100,aC=cfg.cofins/100,dir,part,conv;
+ if(eEmpresa(d.ed)){dir=d.tp==='1'?'Saída':'Entrada';part=d.dn;conv=false}
+ else if(eEmpresa(d.dd)&&d.tp==='1'){dir='Entrada';part=d.en;conv=true}
+ else return [];
+ return d.it.map(i=>{
+  let cf=digits(i.cfop);if(conv&&cf.length===4&&'567'.includes(cf[0]))cf=(+cf[0]-4)+cf.slice(1);
+  let [nat,usaIcms,usaPc]=(dir==='Saída'?CFOP_SAI:CFOP_ENT)[cf.slice(1)]||['Outras operações',0,0];
+  let merc=i.vp-i.vd+i.vf+i.vs+i.vo,vc=merc+i.ipi+i.st,L=base(d),obs=[];
+  let baseCred=()=>Math.max(merc+(cfg.ipi?i.ipi:0)+(cfg.st?i.st:0)-(cfg.exCred?i.icms:0),0);
+  Object.assign(L,{dir,part,c:i.c,d:i.d,q:i.q,cfop:cf,nat,vc,st:i.st,ipi:i.ipi,difal:dir==='Saída'?i.difal:0});
+  if(nat==='Outras operações')obs.push('CFOP sem crédito/débito automático - revisar');
+  if(dir==='Saída'){
+   if(usaIcms)L.icmsD=i.icms;
+   if(nat==='Venda'){L.rec=merc;
+    if(usaPc&&!CST_SEM_DEBITO.has(i.cstPis)){let b=Math.max(merc-(cfg.exDeb?i.icms:0),0);L.bpc=b;L.pisD=b*aP;L.cofD=b*aC}
+    else if(CST_SEM_DEBITO.has(i.cstPis))obs.push('CST PIS '+i.cstPis+' sem débito')}
+   else if(nat==='Devolução de compra'&&usaPc){let b=baseCred();L.bpc=-b;L.pisC=-b*aP;L.cofC=-b*aC;L.custo=-(vc-L.icmsD-b*(aP+aC))}
+  }else{
+   L.icmsC=usaIcms?(i.icms||i.sn):0;let b=0;
+   if(usaPc){
+    if(nat==='Devolução de venda'){b=merc-(cfg.exDeb?i.icms:0);L.rec=-merc}
+    else if(cf[0]==='3'){L.pisC=i.vPis;L.cofC=i.vCof;obs.push('Importação: crédito pelo PIS/COFINS-Importação')}
+    else if(CST_FORN_SEM_CRED.has(i.cstPis))obs.push('Fornecedor CST PIS '+i.cstPis+' (monofásico/alíquota zero) - sem crédito');
+    else b=baseCred()}
+   if(b){b=Math.max(b,0);L.bpc=b;L.pisC=b*aP;L.cofC=b*aC}
+   if(COMPRAS.includes(nat))L.custo=vc-L.icmsC-L.pisC-L.cofC;
+   else if(nat==='Ativo imobilizado')obs.push('Crédito via CIAP/depreciação - lançar em créditos extras');
+  }
+  L.obs=obs.join('; ');return L});
+}
+function classificarCte(d){
+ let cfg=db.config,L=base(d),ov=db.cteOverride[d.k],obs=[],credita=false;
+ Object.assign(L,{part:d.en,d:`Frete ${d.rn} → ${d.dn}`,cfop:d.cfop,vc:d.vt});
+ let tom=eEmpresa(d.td),rem=eEmpresa(d.rd),dest=eEmpresa(d.dd);
+ if(!tom){L.nat='Frete não tomado pela empresa';obs.push('Tomador: '+(d.tn||d.td))}
+ else if(rem&&dest){L.nat='Frete de transferência';obs.push('Entre estabelecimentos: sem crédito de PIS/COFINS')}
+ else if(rem){L.nat='Frete sobre vendas';credita=true}
+ else if(dest){L.nat='Frete sobre compras';credita=true}
+ else{L.nat='Frete - outros';obs.push('Empresa tomadora mas não é remetente nem destinatária')}
+ if(d.sn)obs.push('Transportadora do Simples: sem ICMS destacado');
+ let icms=tom?d.icms:0;
+ if(ov==='Creditável'){credita=true;icms=d.icms;obs.push('Classificado manualmente')}
+ if(ov==='Não creditável'){credita=false;icms=0;obs.push('Classificado manualmente')}
+ L.icmsC=icms;
+ if(credita){L.bpc=d.vt;L.pisC=d.vt*cfg.pis/100;L.cofC=d.vt*cfg.cofins/100}
+ L.classif=(credita||icms>0)?'Creditável':'Não creditável';
+ if(L.nat==='Frete sobre compras')L.custo=d.vt-L.icmsC-L.pisC-L.cofC;
+ L.obs=obs.join('; ');return [L];
+}
+
+// ------------------------------------------------------------------ custos, canais e vendas
+function calcProduto(p){p=Object.assign({},p);for(let f of ['purchase','ipi','outside','pack','other','icms','pis','cof'])p[f]=Number(p[f])||0;
+ p.cmvdre=p.purchase+p.ipi+p.pack+p.other-p.icms-p.pis-p.cof;p.cmvf=p.cmvdre+p.outside;return p}
+function produtoVigente(sku,dt){sku=String(sku||'').trim().toUpperCase();
+ let c=db.products.filter(p=>String(p.sku).trim().toUpperCase()===sku).sort((a,b)=>String(a.vig).localeCompare(String(b.vig)));
+ if(!c.length)return null;let v=c.filter(p=>!p.vig||p.vig<=dt);return v.length?v.at(-1):c[0]}
+function regraCanal(nome,dt){let c=db.channels.filter(x=>x.name===nome&&(!x.vig||x.vig<=dt)).sort((a,b)=>String(a.vig).localeCompare(String(b.vig)));return c.at(-1)||null}
+function canalDoc(d){
+ let mapa={};db.channelMap.forEach(x=>{if(x.cnpj)mapa[digits(x.cnpj)]=x.name});
+ if(d.im)return mapa[digits(d.im)]||('Intermediador '+d.im);
+ if(d.ref&&db.docs[d.ref]&&db.docs[d.ref].im)return mapa[digits(db.docs[d.ref].im)]||('Intermediador '+db.docs[d.ref].im);
+ return detectChannel(d.p)||(d.ref&&db.docs[d.ref]?detectChannel(db.docs[d.ref].p):'')||SEM_CANAL}
+
+function derivar(){
+ if(cache)return cache;
+ let lancs=[];for(let d of Object.values(db.docs)){if(!d.dt)continue;lancs.push(...(d.t==='CT-e'?classificarCte(d):classificarNfe(d)))}
+ // frete de CT-e ligado à NF-e de venda (líquido de créditos)
+ let freteNf={};for(let L of lancs)if(L.t==='CT-e'&&L.nat==='Frete sobre vendas'){let d=db.docs[L.k],liq=L.vc-L.icmsC-L.pisC-L.cofC;
+  let alvo=(d.nfes||[]).filter(k=>db.docs[k]);alvo.forEach(k=>freteNf[k]=(freteNf[k]||0)+liq/alvo.length);L.alocado=alvo.length>0}
+ let recNf={};for(let L of lancs)if(L.nat==='Venda')recNf[L.k]=(recNf[L.k]||0)+L.rec;
+ let vendas=[];
+ for(let L of lancs){if(L.nat!=='Venda'&&L.nat!=='Devolução de venda')continue;
+  let d=db.docs[L.k],venda=L.nat==='Venda',q=venda?L.q:-L.q,canal=canalDoc(d),r=regraCanal(canal,L.dt)||{pct:0,fixed:0,ant:0,other:0};
+  let p=produtoVigente(L.c,L.dt),imp=L.icmsD+L.difal+L.pisD+L.cofD-L.icmsC-L.pisC-L.cofC;
+  let fees=L.rec*((+r.pct||0)+(+r.ant||0)+(+r.other||0))/100+q*(+r.fixed||0);
+  let frete=venda&&freteNf[L.k]&&recNf[L.k]?freteNf[L.k]*L.rec/recNf[L.k]:0;
+  let cmv=p?q*p.cmvdre:0,adic=p?q*p.outside:0,res=L.rec-imp-fees-frete-cmv;
+  vendas.push({m:L.m,dt:L.dt,k:L.k,sku:L.c,nome:(p&&p.name)||L.d,canal,q,rec:L.rec,imp,fees,frete,cmv,adic,res,resFin:res-adic,temCusto:!!p})}
+ cache={lancs,vendas};return cache}
+
+// ------------------------------------------------------------------ agregações mensais
+const soma=(arr,f)=>arr.reduce((a,x)=>a+(typeof f==='function'?f(x):(+x[f]||0)),0);
+function mesesAno(m){let [y,mm]=m.split('-');return Array.from({length:+mm},(_,i)=>`${y}-${String(i+1).padStart(2,'0')}`)}
+function rotulo(m){let [y,mm]=m.split('-');return MESES[+mm-1]+'/'+y.slice(2)}
+function despesasMes(m){let e={};db.expenses.filter(x=>x.month===m).forEach(x=>e[x.cat]=(e[x.cat]||0)+(+x.value||0));return e}
+function extrasMes(m){let x=db.extras.filter(e=>e.month===m);return {pis:soma(x,'pis'),cof:soma(x,'cof'),icms:soma(x,'icms')}}
+function dreMes(m){
+ let {lancs,vendas}=derivar(),L=lancs.filter(x=>x.m===m),V=vendas.filter(x=>x.m===m);
+ let vd=L.filter(x=>x.nat==='Venda'),dv=L.filter(x=>x.nat==='Devolução de venda'),fv=L.filter(x=>x.nat==='Frete sobre vendas');
+ let rec=soma(vd,'rec'),dev=soma(dv,'rec'),icms=soma(vd,'icmsD')-soma(dv,'icmsC'),difal=soma(vd,'difal'),pis=soma(vd,'pisD')-soma(dv,'pisC'),cof=soma(vd,'cofD')-soma(dv,'cofC');
+ let rl=rec+dev-icms-difal-pis-cof,cmv=soma(V,'cmv'),lb=rl-cmv,fees=soma(V,'fees'),frete=soma(fv,x=>x.vc-x.icmsC-x.pisC-x.cofC);
+ let mc=lb-fees-frete,e=despesasMes(m),ex=extrasMes(m),creditosExtras=ex.pis+ex.cof+ex.icms;
+ let adm=['ADS / Publicidade','Pessoal e pró-labore','Despesas fixas','Serviços','Outras despesas'].map(c=>[c,e[c]||0]);
+ let op=mc-soma(adm,x=>x[1])+creditosExtras,recFin=e['Receitas financeiras']||0,pcFin=recFin*0.0465,despFin=e['Despesas financeiras']||0;
+ let lair=op+recFin-pcFin-despFin,b=Math.max(lair,0),csll=b*0.09,irpj=b*0.15+Math.max(b-20000,0)*0.10,liq=lair-csll-irpj,adic=soma(V,'adic');
+ return {rec,dev,icms,difal,pis,cof,rl,cmv,lb,fees,frete,mc,adm,creditosExtras,op,recFin,pcFin,despFin,lair,csll,irpj,liq,adic,caixa:liq-adic,semCusto:V.filter(x=>!x.temCusto)}
+}
+function apuracao(ate){
+ let {lancs}=derivar(),ms=mesesAno(ate),s={ICMS:+db.saldos.icms||0,PIS:+db.saldos.pis||0,COFINS:+db.saldos.cofins||0},linhas=[];
+ for(let [T,sd,sc,se] of [['ICMS','icmsD','icmsC','icms'],['PIS','pisD','pisC','pis'],['COFINS','cofD','cofC','cof']]){
+  let r={deb:[],nfe:[],cte:[],ext:[],ant:[],rec:[],tr:[]},saldo=s[T];
+  for(let m of ms){let L=lancs.filter(x=>x.m===m),deb=soma(L,sd),nfe=soma(L.filter(x=>x.t!=='CT-e'),sc),cte=soma(L.filter(x=>x.t==='CT-e'),sc),ext=extrasMes(m)[se];
+   r.deb.push(deb);r.nfe.push(nfe);r.cte.push(cte);r.ext.push(ext);r.ant.push(saldo);let res=deb-nfe-cte-ext-saldo;r.rec.push(Math.max(res,0));saldo=Math.max(-res,0);r.tr.push(saldo)}
+  linhas.push([T+' — Débitos (vendas)',r.deb,'s'],[T+' — (−) Créditos NF-e',r.nfe,'s'],[T+' — (−) Créditos CT-e',r.cte,'s'],[T+' — (−) Créditos extras',r.ext,'s'],
+   [T+' — (−) Saldo credor anterior',r.ant,'p'],[T+' — A recolher',r.rec,'s',1],[T+' — Saldo credor p/ próximo mês',r.tr,'u',1]);
+ }
+ return {ms,linhas}}
+
+// ------------------------------------------------------------------ renderização
+function tabelaMeses(head,body,ms,linhas){
+ $(head).innerHTML=`<tr><th>Linha</th>${ms.map(m=>`<th class="n">${rotulo(m)}</th>`).join('')}<th class="n">Total</th></tr>`;
+ $(body).innerHTML=linhas.map(([r,vals,t,dest])=>{let tot=t==='p'?vals[0]:t==='u'?vals.at(-1):vals.reduce((a,b)=>a+b,0);
+  return `<tr class="${dest||r.startsWith('=')?'sub':''}"><td>${esc(r)}</td>${vals.map(v=>`<td class="n${cls(v)}">${brl(v)}</td>`).join('')}<td class="n${cls(tot)}"><b>${brl(tot)}</b></td></tr>`}).join('')}
+function linhasDre(ate){
+ let ms=mesesAno(ate),D=ms.map(dreMes),g=f=>D.map(f);
+ let cats=['ADS / Publicidade','Pessoal e pró-labore','Despesas fixas','Serviços','Outras despesas'];
+ return {ms,linhas:[
+  ['Receita bruta de vendas',g(d=>d.rec)],['(−) Devoluções de vendas',g(d=>d.dev)],['(−) ICMS',g(d=>-d.icms)],['(−) DIFAL / FCP',g(d=>-d.difal)],
+  ['(−) PIS',g(d=>-d.pis)],['(−) COFINS',g(d=>-d.cof)],['= Receita líquida',g(d=>d.rl)],['(−) CMV DRE',g(d=>-d.cmv)],['= Lucro bruto',g(d=>d.lb)],
+  ['(−) Comissões / tarifas',g(d=>-d.fees)],['(−) Fretes de venda (CT-e, líquido de créditos)',g(d=>-d.frete)],['= Margem de contribuição',g(d=>d.mc)],
+  ...cats.map((c,i)=>['(−) '+c,g(d=>-d.adm[i][1])]),['(+) Créditos extras',g(d=>d.creditosExtras)],['= Resultado operacional',g(d=>d.op)],
+  ['(+) Receitas financeiras',g(d=>d.recFin)],['(−) PIS/COFINS s/ receitas financeiras',g(d=>-d.pcFin)],['(−) Despesas financeiras',g(d=>-d.despFin)],
+  ['= Resultado antes IRPJ/CSLL',g(d=>d.lair)],['(−) CSLL 9%',g(d=>-d.csll)],['(−) IRPJ 15% + adicional 10%',g(d=>-d.irpj)],['= Lucro líquido (DRE)',g(d=>d.liq)],
+  ['(−) Pago adicional (CMV Financeiro − CMV DRE)',g(d=>-d.adic)],['= Resultado financeiro (caixa)',g(d=>d.caixa)]]}}
+
+function mesesDisponiveis(){let a=new Set();Object.values(db.docs).forEach(d=>d.dt&&a.add(d.dt.slice(0,7)));
+ let hoje=new Date(),y=hoje.getFullYear();for(let i=1;i<=hoje.getMonth()+1;i++)a.add(`${y}-${String(i).padStart(2,'0')}`);return [...a].sort()}
+function initMonths(){let sel=$('#month'),cur=sel.dataset.want||sel.value,ms=mesesDisponiveis();delete sel.dataset.want;
+ sel.innerHTML=ms.map(m=>`<option value="${m}">${rotulo(m)}</option>`).join('');sel.value=ms.includes(cur)?cur:(ms.at(-1)||'')}
+
+function renderDash(m){
+ let d=dreMes(m),{lancs}=derivar(),L=lancs.filter(x=>x.m===m),compras=L.filter(x=>COMPRAS.includes(x.nat)),ct=L.filter(x=>x.t==='CT-e');
+ $('#kFat').textContent=brl(d.rec);$('#kBuy').textContent=brl(soma(compras,'vc'));$('#kCmv').textContent=brl(d.cmv);
+ $('#kRes').textContent=brl(d.lair);$('#kRes').className=d.lair<0?'bad':'ok';$('#kCom').textContent=brl(d.fees);$('#kFrete').textContent=brl(d.frete);
+ $('#kCred').textContent=brl(soma(ct,x=>x.icmsC+x.pisC+x.cofC));$('#kMc').textContent=brl(d.mc);
+ let closed=db.closed.includes(m);$('#closeStatus').innerHTML=`<b>${rotulo(m)}</b>: ${closed?'<span class="ok">FECHADA</span>':'<span class="warn">EM CONFERÊNCIA</span>'}`;
+ let skus=new Set(d.semCusto.map(x=>x.sku)),rev=L.filter(x=>x.obs.includes('revisar')).length;
+ $('#quality').innerHTML=`Produtos vendidos sem custo cadastrado: <b class="${skus.size?'bad':'ok'}">${skus.size}</b><br>Itens com CFOP para revisar: <b class="${rev?'warn':'ok'}">${rev}</b><br>CT-e no mês: <b>${ct.length}</b> (${ct.filter(x=>x.classif==='Creditável').length} creditáveis)<br>Documentos no mês: <b>${new Set(L.map(x=>x.k)).size}</b>`;
+ $('#dashAlert').innerHTML=!Object.keys(db.docs).length?`<div class="note" style="margin-bottom:16px">Comece em <b>Importações</b>: envie os ZIPs com os XMLs de janeiro até hoje.</div>`:
+  !db.config.cnpjs.length?`<div class="note red" style="margin-bottom:16px">Informe o CNPJ da empresa em <b>Configuração e Backup</b>.</div>`:'';
+}
+function renderImports(){
+ let por={};for(let d of Object.values(db.docs)){let m=d.dt.slice(0,7),r=por[m]=por[m]||{v:0,c:0,o:0,t:0};
+  if(d.t==='CT-e')r.t++;else if(eEmpresa(d.ed)&&d.tp==='1')r.v++;else if(eEmpresa(d.dd))r.c++;else r.o++}
+ $('#docsBody').innerHTML=Object.keys(por).sort().map(m=>`<tr><td>${rotulo(m)}</td><td class="n">${por[m].v}</td><td class="n">${por[m].c}</td><td class="n">${por[m].o}</td><td class="n">${por[m].t}</td><td class="n"></td></tr>`).join('')+
+  `<tr class="tot"><td>Total</td><td class="n">${soma(Object.values(por),'v')}</td><td class="n">${soma(Object.values(por),'c')}</td><td class="n">${soma(Object.values(por),'o')}</td><td class="n">${soma(Object.values(por),'t')}</td><td class="n">${Object.keys(db.canceled).length}</td></tr>`;
+ $('#importsBody').innerHTML=db.imports.slice().reverse().map(x=>`<tr><td>${esc(x.date)}</td><td>${esc(x.file)}</td><td class="n">${x.xml}</td><td class="n">${x.novos}</td><td class="n">${x.rep}</td><td class="n">${x.canc}</td><td class="n">${x.err}</td></tr>`).join('')}
+function renderProducts(){
+ let f=($('#prodSearch').value||'').toLowerCase(),lista=db.products.map((p,i)=>[p,i]).filter(([p])=>!f||(p.sku+' '+p.name).toLowerCase().includes(f))
+  .sort((a,b)=>(a[0].sku+a[0].vig).localeCompare(b[0].sku+b[0].vig));
+ $('#prodBody').innerHTML=lista.map(([p,i])=>`<tr><td><b>${esc(p.sku)}</b></td><td>${esc(p.name)}</td><td>${esc(p.vig||'—')}</td><td class="n">${brl(p.purchase)}</td><td class="n">${brl(p.ipi)}</td><td class="n">${brl(p.outside)}</td><td class="n">${brl(p.pack)}</td><td class="n">${brl(p.other)}</td><td class="n">${brl(p.icms)}</td><td class="n">${brl(p.pis)}</td><td class="n">${brl(p.cof)}</td><td class="n"><b>${brl(p.cmvdre)}</b></td><td class="n"><b>${brl(p.cmvf)}</b></td><td><button class="link" onclick="editProd(${i})">Editar</button> <button class="link" onclick="delProd(${i})">Excluir</button></td></tr>`).join('')||'<tr><td colspan="14" class="mut">Nenhum produto. Cadastre acima ou use o botão em Rentabilidade para trazer os SKUs vendidos.</td></tr>'}
+function renderRent(m){
+ let {vendas}=derivar(),per=$('#rentPeriod').value,ch=$('#rentChannel').value,g=$('#rentGroup').value,y=m.slice(0,4);
+ let V=vendas.filter(x=>(per==='m'?x.m===m:x.m.startsWith(y)&&x.m<=m)&&(!ch||x.canal===ch));
+ let canais=[...new Set(vendas.map(x=>x.canal))].sort();$('#rentChannel').innerHTML='<option value="">Todos</option>'+canais.map(c=>`<option ${c===ch?'selected':''}>${esc(c)}</option>`).join('');
+ let grupos={};for(let v of V){let k=g==='sku'?v.sku:v.sku+'|'+v.canal,x=grupos[k]=grupos[k]||{sku:v.sku,nome:v.nome,canal:g==='sku'?'':v.canal,q:0,rec:0,imp:0,fees:0,frete:0,cmv:0,res:0,adic:0,resFin:0,temCusto:true};
+  for(let f of ['q','rec','imp','fees','frete','cmv','res','adic','resFin'])x[f]+=v[f];x.temCusto=x.temCusto&&v.temCusto}
+ let rows=Object.values(grupos).sort((a,b)=>a.resFin-b.resFin);
+ rows.forEach(r=>{r.marg=r.rec?r.res/r.rec:0;r.sit=!r.temCusto?'Sem custo':r.resFin<0?'Prejuízo':'Lucro'});
+ $('#rVenda').textContent=brl(soma(V,'rec'));$('#rRes').textContent=brl(soma(V,'res'));$('#rFin').textContent=brl(soma(V,'resFin'));$('#rNeg').textContent=rows.filter(r=>r.sit==='Prejuízo').length;
+ let sem=rows.filter(r=>r.sit==='Sem custo');
+ $('#rentBody').innerHTML=(sem.length?`<tr><td colspan="14"><div class="note yel">${sem.length} produto(s) sem custo cadastrado: o resultado deles está superestimado. <button class="link" onclick="cadastrarSemCusto()">Criar esses SKUs em Produtos e Custos</button></div></td></tr>`:'')+
+  rows.map(r=>`<tr><td><b>${esc(r.sku)}</b></td><td>${esc(r.nome)}</td><td>${esc(r.canal)}</td><td class="n">${qtd(r.q)}</td><td class="n">${brl(r.rec)}</td><td class="n">${brl(r.imp)}</td><td class="n">${brl(r.fees)}</td><td class="n">${brl(r.frete)}</td><td class="n">${brl(r.cmv)}</td><td class="n${cls(r.res)}"><b>${brl(r.res)}</b></td><td class="n${cls(r.marg)}">${pct(r.marg)}</td><td class="n">${brl(r.adic)}</td><td class="n${cls(r.resFin)}"><b>${brl(r.resFin)}</b></td><td class="${r.sit==='Lucro'?'ok':r.sit==='Prejuízo'?'bad':'warn'}">${r.sit}</td></tr>`).join('');
+ window._rentRows=rows}
+window.cadastrarSemCusto=()=>{let {vendas}=derivar(),n=0,vistos=new Set(db.products.map(p=>String(p.sku).trim().toUpperCase()));
+ for(let v of vendas)if(!v.temCusto&&!vistos.has(String(v.sku).trim().toUpperCase())){vistos.add(String(v.sku).trim().toUpperCase());db.products.push(calcProduto({sku:v.sku,name:v.nome,vig:''}));n++}
+ alert(n+' produto(s) criado(s) com custo zero. Edite os custos em Produtos e Custos.');changed()}
+function renderChannels(){
+ let {vendas}=derivar(),y=($('#month').value||'').slice(0,4),cont={};vendas.filter(v=>v.m.startsWith(y)).forEach(v=>cont[v.canal]=(cont[v.canal]||0)+v.rec);
+ $('#mapBody').innerHTML=db.channelMap.map((c,i)=>`<tr><td>${esc(c.name)}</td><td>${esc(c.cnpj)}</td><td class="n">${brl(cont[c.name]||0)}</td><td><button class="link" onclick="delMap(${i})">Excluir</button></td></tr>`).join('');
+ let desconhecidos=Object.keys(cont).filter(c=>c.startsWith('Intermediador '));
+ $('#unknownIntermed').innerHTML=desconhecidos.length?`<div class="note yel">Vendas com intermediador não cadastrado: ${desconhecidos.map(c=>`<b>${esc(c.replace('Intermediador ',''))}</b> (${brl(cont[c])})`).join(', ')}. Cadastre o CNPJ acima com o nome do canal.</div>`:'';
+ let nomes=[...new Set([...db.channelMap.map(c=>c.name),...Object.keys(cont),SEM_CANAL])];
+ $('#chList').innerHTML=nomes.map(n=>`<option value="${esc(n)}">`).join('');
+ $('#channelBody').innerHTML=db.channels.map((c,i)=>`<tr><td>${esc(c.name)}</td><td>${esc(c.vig||'—')}</td><td class="n">${c.pct}%</td><td class="n">${brl(c.fixed)}</td><td class="n">${c.ant}%</td><td class="n">${c.other}%</td><td><button class="link" onclick="delCh(${i})">Excluir</button></td></tr>`).join('')||'<tr><td colspan="7" class="mut">Nenhuma regra: as comissões ficam zeradas até você cadastrar.</td></tr>'}
+function renderCte(m){
+ let ct=derivar().lancs.filter(x=>x.t==='CT-e'&&x.m===m),f=$('#cteFilter').value,cred=x=>x.icmsC+x.pisC+x.cofC;
+ $('#cteN').textContent=ct.length;$('#cteV').textContent=brl(soma(ct,'vc'));$('#cteI').textContent=brl(soma(ct,x=>db.docs[x.k].icms));$('#cteC').textContent=brl(soma(ct,cred));
+ $('#cteBody').innerHTML=ct.filter(x=>!f||x.classif===f).sort((a,b)=>a.dt.localeCompare(b.dt)).map(x=>{let d=db.docs[x.k],ov=db.cteOverride[x.k]||'';
+  return `<tr><td>${esc(x.dt)}</td><td>${esc(x.n)}</td><td>${esc(x.part)}</td><td>${esc(detectChannel(d.p)||'—')}</td><td>${esc(x.nat)}</td><td class="n">${brl(x.vc)}</td><td class="n">${brl(x.icmsC)}</td><td class="n">${brl(x.pisC)}</td><td class="n">${brl(x.cofC)}</td><td class="n"><b>${brl(cred(x))}</b></td>
+  <td><select onchange="setCte('${x.k}',this.value)"><option value="" ${ov?'':'selected'}>Automático (${x.classif})</option><option ${ov==='Creditável'?'selected':''}>Creditável</option><option ${ov==='Não creditável'?'selected':''}>Não creditável</option></select></td><td class="mut">${esc(x.obs)}</td></tr>`}).join('')}
+window.setCte=(k,v)=>{if(v)db.cteOverride[k]=v;else delete db.cteOverride[k];changed()};
+function renderCompras(m){
+ let L=derivar().lancs.filter(x=>x.m===m&&x.t==='NF-e'&&x.dir==='Entrada'&&x.nat!=='Devolução de venda'),cp=L.filter(x=>COMPRAS.includes(x.nat));
+ $('#cpN').textContent=new Set(cp.map(x=>x.k)).size;$('#cpV').textContent=brl(soma(cp,'vc'));$('#cpC').textContent=brl(soma(cp,x=>x.icmsC+x.pisC+x.cofC));$('#cpL').textContent=brl(soma(cp,'custo'));
+ let nat={};L.forEach(x=>(nat[x.nat]=nat[x.nat]||[]).push(x));
+ let linha=(n,a)=>`<td class="n">${new Set(a.map(x=>x.k)).size}</td><td class="n">${brl(soma(a,'vc'))}</td><td class="n">${brl(soma(a,'ipi'))}</td><td class="n">${brl(soma(a,'st'))}</td><td class="n">${brl(soma(a,'icmsC'))}</td><td class="n">${brl(soma(a,'pisC'))}</td><td class="n">${brl(soma(a,'cofC'))}</td><td class="n">${brl(soma(a,'custo'))}</td>`;
+ $('#cpNat').innerHTML=Object.entries(nat).map(([n,a])=>`<tr><td>${esc(n)}</td>${linha(n,a)}</tr>`).join('')+(L.length?`<tr class="tot"><td>Total</td>${linha('',L)}</tr>`:'<tr><td colspan="9" class="mut">Nenhuma NF-e de entrada nesta competência.</td></tr>');
+ let porNota={};L.forEach(x=>{let r=porNota[x.k]=porNota[x.k]||{dt:x.dt,n:x.n,part:x.part,nat:new Set(),cfop:new Set(),vc:0,ipi:0,st:0,icmsC:0,pisC:0,cofC:0,custo:0,obs:new Set()};
+  r.nat.add(x.nat);r.cfop.add(x.cfop);for(let f of ['vc','ipi','st','icmsC','pisC','cofC','custo'])r[f]+=x[f];if(x.obs)r.obs.add(x.obs)});
+ window._cpRows=Object.values(porNota).sort((a,b)=>a.dt.localeCompare(b.dt));
+ $('#cpBody').innerHTML=window._cpRows.map(r=>`<tr><td>${esc(r.dt)}</td><td>${esc(r.n)}</td><td>${esc(r.part)}</td><td>${esc([...r.nat].join(', '))}</td><td>${esc([...r.cfop].join(', '))}</td><td class="n">${brl(r.vc)}</td><td class="n">${brl(r.ipi)}</td><td class="n">${brl(r.st)}</td><td class="n">${brl(r.icmsC)}</td><td class="n">${brl(r.pisC)}</td><td class="n">${brl(r.cofC)}</td><td class="n">${brl(r.custo)}</td><td class="mut">${esc([...r.obs].join('; '))}</td></tr>`).join('')}
+function renderApur(m){let a=apuracao(m);tabelaMeses('#apHead','#apBody',a.ms,a.linhas);window._apur=a;
+ $('#sIcms').value=db.saldos.icms||'';$('#sPis').value=db.saldos.pis||'';$('#sCof').value=db.saldos.cofins||'';
+ $('#exBody').innerHTML=db.extras.map((e,i)=>`<tr><td>${rotulo(e.month)}</td><td>${esc(e.desc)}</td><td class="n">${brl(e.base)}</td><td class="n">${brl(e.pis)}</td><td class="n">${brl(e.cof)}</td><td class="n">${brl(e.icms)}</td><td><button class="link" onclick="delExtra(${i})">Excluir</button></td></tr>`).join('')}
+function renderDre(m){let d=linhasDre(m);tabelaMeses('#dreHead','#dreBody',d.ms,d.linhas);window._dre=d}
+function renderExp(){$('#expBody').innerHTML=db.expenses.slice().sort((a,b)=>a.month.localeCompare(b.month)).map(e=>`<tr><td>${rotulo(e.month)}</td><td>${esc(e.cat)}</td><td>${esc(e.desc)}</td><td class="n">${brl(e.value)}</td><td><button class="link" onclick="delExp(${db.expenses.indexOf(e)})">Excluir</button></td></tr>`).join('')||'<tr><td colspan="5" class="mut">Nenhuma despesa lançada.</td></tr>'}
+function renderAudit(m){let d=dreMes(m),L=derivar().lancs.filter(x=>x.m===m),skus=[...new Set(d.semCusto.map(x=>x.sku))],rev=L.filter(x=>x.obs.includes('revisar'));
+ let fora=Object.values(db.docs).filter(x=>x.dt.startsWith(m)&&x.t==='NF-e'&&!eEmpresa(x.ed)&&!eEmpresa(x.dd)).length;
+ $('#auditText').innerHTML=`<p><b>${rotulo(m)}</b> — ${db.closed.includes(m)?'<span class="ok">FECHADA</span>':'<span class="warn">EM CONFERÊNCIA</span>'}</p><ul>
+ <li>Produtos vendidos sem custo: <b class="${skus.length?'bad':'ok'}">${skus.length}</b>${skus.length?' — '+skus.slice(0,20).map(esc).join(', '):''}</li>
+ <li>Itens com CFOP para revisar: <b class="${rev.length?'warn':'ok'}">${rev.length}</b>${rev.length?' — CFOP '+[...new Set(rev.map(x=>x.cfop))].join(', '):''}</li>
+ <li>CT-e não creditáveis: <b>${L.filter(x=>x.t==='CT-e'&&x.classif!=='Creditável').length}</b></li>
+ <li>NF-e em que a empresa não é emitente nem destinatária: <b class="${fora?'warn':'ok'}">${fora}</b>${fora?' (confira o CNPJ em Configuração)':''}</li>
+ <li>Regras de comissão cadastradas: <b class="${db.channels.length?'ok':'warn'}">${db.channels.length}</b></li></ul>
+ <p>O fechamento só é definitivo após conciliar vendas, custos por vigência, documentos fiscais, CT-e, marketplace e financeiro.</p>`}
+function renderConfig(){let c=db.config;$('#cfgCnpj').value=c.cnpjs.join(', ');$('#cfgPis').value=c.pis;$('#cfgCof').value=c.cofins;
+ $('#cfgExDeb').checked=c.exDeb;$('#cfgExCred').checked=c.exCred;$('#cfgIpi').checked=c.ipi;$('#cfgSt').checked=c.st;
+ let s=sugerirCnpj().slice(0,5);$('#cnpjSuggest').innerHTML=s.length?'<span class="mut">CNPJs que mais aparecem nos XMLs:</span> '+s.map(([x,n,q])=>`<span class="pill">${esc(x)} — ${esc(n)} (${q})</span>`).join(' '):''}
+function render(){
+ if(!db)return;initMonths();let m=$('#month').value;if(!m)return;
+ let pg=($('#nav button.active')||{}).dataset?.p||'dash';
+ renderDash(m);
+ ({import:renderImports,prod:renderProducts,rent:()=>renderRent(m),channels:renderChannels,cte:()=>renderCte(m),compras:()=>renderCompras(m),
+   apur:()=>renderApur(m),dre:()=>renderDre(m),finance:renderExp,audit:()=>renderAudit(m),config:renderConfig}[pg]||(()=>{}))();
+}
+
+// ------------------------------------------------------------------ ações
+const num=id=>Number($(id).value)||0;
+$('#calcCred').onclick=()=>{let nf=num('#purchase'),ipi=num('#ipi'),icms=nf*num('#icmspct')/100,b=Math.max(nf+(db.config.ipi?ipi:0)-(db.config.exCred?icms:0),0);
+ $('#icmscred').value=icms.toFixed(2);$('#piscred').value=(b*db.config.pis/100).toFixed(2);$('#cofcred').value=(b*db.config.cofins/100).toFixed(2)};
+$('#addProd').onclick=()=>{let sku=$('#sku').value.trim();if(!sku)return alert('Informe o SKU.');
+ let p=calcProduto({sku,name:$('#pname').value.trim()||sku,vig:$('#vig').value,purchase:num('#purchase'),ipi:num('#ipi'),outside:num('#outside'),pack:num('#pack'),other:num('#other'),icms:num('#icmscred'),pis:num('#piscred'),cof:num('#cofcred')});
+ let i=db.products.findIndex(x=>x.sku===p.sku&&(x.vig||'')===(p.vig||''));if(i>=0)db.products[i]=p;else db.products.push(p);
+ $('#prodMsg').innerHTML=`<div class="note">Salvo: <b>${esc(sku)}</b> • CMV DRE ${brl(p.cmvdre)} • CMV Financeiro ${brl(p.cmvf)}</div>`;
+ ['#sku','#pname','#vig','#purchase','#ipi','#icmspct','#outside','#pack','#other','#icmscred','#piscred','#cofcred'].forEach(s=>$(s).value='');changed()};
+window.editProd=i=>{let p=db.products[i];$('#sku').value=p.sku;$('#pname').value=p.name;$('#vig').value=p.vig||'';
+ for(let [s,f] of [['#purchase','purchase'],['#ipi','ipi'],['#outside','outside'],['#pack','pack'],['#other','other'],['#icmscred','icms'],['#piscred','pis'],['#cofcred','cof']])$(s).value=p[f]||'';
+ window.scrollTo({top:0,behavior:'smooth'})};
+window.delProd=i=>{if(confirm('Excluir esta vigência?')){db.products.splice(i,1);changed()}};
+$('#prodSearch').oninput=renderProducts;
+$('#addMap').onclick=()=>{let name=$('#mapName').value.trim(),cnpj=digits($('#mapCnpj').value);if(!name||cnpj.length!==14)return alert('Informe o nome do canal e o CNPJ (14 dígitos).');
+ db.channelMap=db.channelMap.filter(x=>digits(x.cnpj)!==cnpj);db.channelMap.push({name,cnpj});$('#mapName').value=$('#mapCnpj').value='';changed()};
+window.delMap=i=>{db.channelMap.splice(i,1);changed()};
+$('#addChannel').onclick=()=>{let name=$('#chName').value.trim();if(!name)return alert('Informe o canal.');
+ db.channels.push({name,vig:$('#chVig').value,pct:num('#chPct'),fixed:num('#chFixed'),ant:num('#chAnt'),other:num('#chOther')});
+ ['#chName','#chVig','#chPct','#chFixed','#chAnt','#chOther'].forEach(s=>$(s).value='');changed()};
+window.delCh=i=>{db.channels.splice(i,1);changed()};
+$('#addExp').onclick=()=>{let month=$('#expMonth').value;if(!month)return alert('Informe a competência.');
+ db.expenses.push({month,cat:$('#expCat').value,desc:$('#expDesc').value.trim(),value:num('#expVal')});$('#expDesc').value=$('#expVal').value='';changed()};
+window.delExp=i=>{db.expenses.splice(i,1);changed()};
+$('#addExtra').onclick=()=>{let month=$('#exMonth').value;if(!month)return alert('Informe a competência.');let b=num('#exBase');
+ db.extras.push({month,desc:$('#exDesc').value.trim(),base:b,pis:b*db.config.pis/100,cof:b*db.config.cofins/100,icms:num('#exIcms')});$('#exDesc').value=$('#exBase').value=$('#exIcms').value='';changed()};
+window.delExtra=i=>{db.extras.splice(i,1);changed()};
+for(let [id,f] of [['#sIcms','icms'],['#sPis','pis'],['#sCof','cofins']])$(id).onchange=()=>{db.saldos[f]=num(id);changed()};
+['#rentPeriod','#rentChannel','#rentGroup','#cteFilter'].forEach(s=>$(s).onchange=render);
+$('#saveCfg').onclick=()=>{let c=db.config;c.cnpjs=$('#cfgCnpj').value.split(/[,;\s]+/).map(digits).filter(x=>x.length===14||x.length===11);
+ c.pis=num('#cfgPis');c.cofins=num('#cfgCof');c.exDeb=$('#cfgExDeb').checked;c.exCred=$('#cfgExCred').checked;c.ipi=$('#cfgIpi').checked;c.st=$('#cfgSt').checked;
+ alert('Configuração salva. Documentos recalculados.');changed()};
+$('#closeMonth').onclick=()=>{let m=$('#month').value;if(!db.closed.includes(m))db.closed.push(m);changed()};
+$('#openMonth').onclick=()=>{db.closed=db.closed.filter(x=>x!==$('#month').value);changed()};
+$('#month').onchange=()=>{let m=$('#month').value;$('#expMonth').value=$('#exMonth').value=m;render()};
+$$('#nav button').forEach(b=>b.onclick=()=>{$$('#nav button').forEach(x=>x.classList.remove('active'));b.classList.add('active');
+ $$('.page').forEach(x=>x.classList.remove('active'));$('#'+b.dataset.p).classList.add('active');$('#title').textContent=b.textContent;render()});
+
+// exportação CSV (abre no Excel)
+function baixar(nome,conteudo,tipo){let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([conteudo],{type:tipo}));a.download=nome;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+const cel=v=>typeof v==='number'?v.toFixed(2).replace('.',','):'"'+String(v??'').replace(/"/g,'""')+'"';
+function csv(nome,cab,linhas){baixar(nome,'﻿'+[cab,...linhas].map(l=>l.map(cel).join(';')).join('\r\n'),'text/csv;charset=utf-8')}
+function csvMeses(nome,t){csv(nome,['Linha',...t.ms.map(rotulo),'Total'],t.linhas.map(([r,v,tp])=>[r,...v,tp==='p'?v[0]:tp==='u'?v.at(-1):v.reduce((a,b)=>a+b,0)]))}
+$('#dreCsv').onclick=()=>csvMeses('dre_mensal.csv',window._dre);
+$('#apCsv').onclick=()=>csvMeses('apuracao_impostos.csv',window._apur);
+$('#rentCsv').onclick=()=>csv('rentabilidade.csv',['SKU','Produto','Canal','Qtd','Venda','Impostos','Comissão/tarifas','Frete','CMV DRE','Resultado DRE','Margem %','Pago adicional','Resultado financeiro','Situação'],
+ (window._rentRows||[]).map(r=>[r.sku,r.nome,r.canal,r.q,r.rec,r.imp,r.fees,r.frete,r.cmv,r.res,r.marg*100,r.adic,r.resFin,r.sit]));
+$('#cpCsv').onclick=()=>csv('compras.csv',['Data','NF','Fornecedor','Natureza','CFOP','Valor','IPI','ICMS-ST','Créd. ICMS','Créd. PIS','Créd. COFINS','Custo líquido'],
+ (window._cpRows||[]).map(r=>[r.dt,r.n,r.part,[...r.nat].join(', '),[...r.cfop].join(', '),r.vc,r.ipi,r.st,r.icmsC,r.pisC,r.cofC,r.custo]));
+$('#cteCsv').onclick=()=>{let m=$('#month').value;csv('cte_'+m+'.csv',['Data','Número','Chave','Emitente','Tipo','Valor','ICMS','PIS','COFINS','Classificação'],
+ derivar().lancs.filter(x=>x.t==='CT-e'&&x.m===m).map(x=>[x.dt,x.n,x.k,x.part,x.nat,x.vc,x.icmsC,x.pisC,x.cofC,x.classif]))};
+$('#prodCsv').onclick=()=>csv('produtos.csv',['SKU','Produto','Vigência','Compra/NF','IPI','Pago adicional','Embalagem','Outros','Créd. ICMS','Créd. PIS','Créd. COFINS','CMV DRE','CMV Financeiro'],
+ db.products.map(p=>[p.sku,p.name,p.vig,p.purchase,p.ipi,p.outside,p.pack,p.other,p.icms,p.pis,p.cof,p.cmvdre,p.cmvf]));
+
+// backup
+$('#bkDown').onclick=()=>baixar(`kemmax_backup_${new Date().toISOString().slice(0,10)}.json`,JSON.stringify(db),'application/json');
+$('#bkUp').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let x=JSON.parse(await f.text());if(!x.docs||!x.config)throw new Error('arquivo não é backup do Kemmax');
+ if(!confirm('Substituir todos os dados atuais por este backup?'))return;db=Object.assign(novoDb(),x);await saveNow();changed();alert('Backup restaurado.')}catch(err){alert('Não foi possível restaurar: '+err.message)}e.target.value=''};
+$('#wipe').onclick=async()=>{if(!confirm('Apagar TODOS os dados (documentos, produtos, canais, despesas)? Faça backup antes.'))return;db=novoDb();await saveNow();changed()};
+$('#storageInfo').onclick=async()=>{if(navigator.storage&&navigator.storage.estimate){let e=await navigator.storage.estimate();
+ alert(`Documentos: ${Object.keys(db.docs).length.toLocaleString('pt-BR')}\nArmazenamento usado: ${((e.usage||0)/1048576).toFixed(1)} MB de ${((e.quota||0)/1048576).toFixed(0)} MB`)}else alert('Sem estimativa disponível.')};
+
+(async function boot(){
+ try{await loadDB();if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();let m=mesesDisponiveis();
+  $('#expMonth').value=$('#exMonth').value=m.at(-1)||'';render()}
+ catch(e){alert('Não foi possível abrir o banco local (IndexedDB): '+e.message+'\nAbra o arquivo no Chrome ou Edge.')}
+})();
+</script></body></html>

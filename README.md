@@ -58,6 +58,14 @@ pip install pytest
 python -m pytest tests
 ```
 
+## Versão sem instalação: KemmaxGestao.html
+
+Arquivo único que abre no Chrome ou Edge (dois cliques), sem Python. Lê os ZIPs de NF-e/CT-e no próprio
+navegador e guarda tudo neste computador (IndexedDB): Dashboard, Importações, Produtos e Custos por vigência,
+Rentabilidade por Produto, Canais e Tarifas, CT-e e Créditos, Compras Mensais, Apuração ICMS/PIS/COFINS,
+DRE Mensal, Despesas, Auditoria/fechamento e Backup (baixe o backup .json com frequência).
+Usa as mesmas regras fiscais da versão Python. Teste automatizado: `tests/test_html.py` (Playwright).
+
 ## Usar no seu computador (sistema fechado - recomendado para os XMLs)
 
 Os XMLs e o banco de dados ficam só no seu computador; nada vai para o GitHub nem para a internet.
