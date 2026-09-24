@@ -286,3 +286,78 @@ def test_html_cancelamentos(tmp_path):
         assert _valor(page, "#cpV") == pytest.approx(1850)
         assert erros == []
         browser.close()
+
+
+def test_html_lixeira(tmp_path):
+    compra = nfe("35260822222222000122550010000080011000080011", FORNECEDOR, EMPRESA,
+                 [_item(1, "5102", 1000.0, 120.0, codigo="A")], data="2026-08-05")
+    retorno1 = nfe("35260803007331000141550010000080021000080021", "03007331000141", EMPRESA,
+                   [_item(1, "6907", 4000.0, 0.0, codigo="B")], data="2026-08-06")
+    retorno2 = nfe("35260803007331000141550010000080031000080031", "03007331000141", EMPRESA,
+                   [_item(1, "6907", 3000.0, 0.0, codigo="C")], data="2026-08-07")
+    caminho = tmp_path / "lix.zip"
+    with zipfile.ZipFile(caminho, "w", zipfile.ZIP_DEFLATED) as zf:
+        for i, x in enumerate([compra, retorno1, retorno2]):
+            zf.writestr(f"{i}.xml", x)
+    chromium = glob.glob("/opt/pw-browsers/chromium*/chrome-linux*/chrome")
+    with sync_api.sync_playwright() as p:
+        browser = p.chromium.launch(executable_path=chromium[0] if chromium else None)
+        page = browser.new_page()
+        erros = []
+        page.on("pageerror", lambda e: erros.append(str(e)))
+        page.on("dialog", lambda d: d.accept())
+        page.goto("file://" + HTML)
+        page.wait_for_function("window.document.querySelector('#month').options.length>0")
+        page.evaluate(f"db.config.cnpjs=['{EMPRESA}']")
+
+        def importar():
+            page.click("text=Importações")
+            page.set_input_files("#files", str(caminho))
+            page.click("#registerImport")
+            page.wait_for_selector("text=Importação concluída.")
+            return page.inner_text("#importResult")
+
+        importar()
+        page.select_option("#month", "2026-08")
+        ndocs = "Object.keys(db.docs).length"
+
+        # excluir uma nota
+        page.click("text=NF de Compra")
+        page.click("#cpBody >> text=excluir")
+        assert page.evaluate(ndocs) == 2 and _valor(page, "#cpV") == pytest.approx(0)
+        # reimportar não traz de volta
+        assert "1 na Lixeira (ignorados)" in importar()
+        assert page.evaluate(ndocs) == 2
+        assert "Excluída manualmente" in page.inner_text("#lixBody")
+        page.click("#lixBody >> text=Restaurar")
+        assert page.evaluate(ndocs) == 3
+
+        # excluir em lote só as outras entradas (retornos do FULL)
+        page.click("text=NF de Compra")
+        page.select_option("#cpTipo", "outras")
+        page.click("#compras >> text=Excluir notas listadas")
+        assert page.evaluate(ndocs) == 1
+        page.click("text=Importações")
+        page.click("#lixRestTodos")
+        assert page.evaluate(ndocs) == 3
+        # excluir pela natureza no quadro "Por natureza"
+        page.click("text=NF de Compra")
+        page.click("#cpNat tr:has-text('Retorno de depósito') >> text=excluir todas")
+        assert page.evaluate(ndocs) == 1
+        page.select_option("#cpTipo", "compras")
+        assert _valor(page, "#cpV") == pytest.approx(1000)
+
+        # excluir o mês inteiro e apagar definitivamente
+        page.click("text=Importações")
+        page.click("#docsBody >> text=excluir mês")
+        assert page.evaluate(ndocs) == 0
+        page.click("#lixApagarTodos")
+        assert page.evaluate("Object.values(db.trash).every(t=>t.apagada&&!t.doc)")
+        assert "3 na Lixeira (ignorados)" in importar()
+        page.click("#lixLiberar")
+        assert "3 novos" in importar()
+
+        page.click("#importsBody >> text=remover do histórico >> nth=0")
+        assert page.evaluate("db.imports.length") == 3
+        assert erros == []
+        browser.close()
