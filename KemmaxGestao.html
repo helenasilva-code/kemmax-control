@@ -219,7 +219,7 @@ function lerNfe(root,path){
    return {c:tx(pr,'cProd'),d:tx(pr,'xProd'),ncm:tx(pr,'NCM'),cfop:tx(pr,'CFOP'),q:nm(pr,'qCom'),vp:nm(pr,'vProd'),vd:nm(pr,'vDesc'),vf:nm(pr,'vFrete'),vs:nm(pr,'vSeg'),vo:nm(pr,'vOutro'),
      ipi:ipi?nm(ipi,'vIPI'):0,cstPis:p1?tx(p1,'CST'):'',vPis:p1?nm(p1,'vPIS'):0,vCof:c1?nm(c1,'vCOFINS'):0,difal:df?nm(df,'vICMSUFDest')+nm(df,'vFCPUFDest'):0,difalIcms:df?nm(df,'vICMSUFDest'):0,fcp:df?nm(df,'vFCPUFDest'):0,pDest:df?nm(df,'pICMSUFDest'):0,pInter:df?nm(df,'pICMSInter'):0,
      bc:g1?nm(g1,'vBC'):0,icms:g1?nm(g1,'vICMS'):0,cst:g1?(tx(g1,'CST')||tx(g1,'CSOSN')):'',pIcms:g1?nm(g1,'pICMS'):0,pRed:g1?nm(g1,'pRedBC'):0,st:g1?nm(g1,'vICMSST'):0,sn:g1?nm(g1,'vCredICMSSN'):0}});
- return {v:PARSER,t:'NF-e',ufe:tx(emit,'enderEmit','UF'),k,n:tx(ide,'nNF'),dt:(tx(ide,'dhEmi')||tx(ide,'dEmi')).slice(0,10),tp:tx(ide,'tpNF'),fin:tx(ide,'finNFe'),
+ return {v:PARSER,t:'NF-e',st:tx(any(root,'infProt'),'cStat'),ufe:tx(emit,'enderEmit','UF'),k,n:tx(ide,'nNF'),dt:(tx(ide,'dhEmi')||tx(ide,'dEmi')).slice(0,10),tp:tx(ide,'tpNF'),fin:tx(ide,'finNFe'),
   ed:docId(emit),en:tx(emit,'xNome'),dd:docId(dest),dn:tx(dest,'xNome'),uf:tx(dest,'enderDest','UF'),vt:nm(tot,'vNF'),im:im?tx(im,'CNPJ'):'',ref:refs[0]||'',it,p:path}
 }
 const TOMA={'0':'rem','1':'exped','2':'receb','3':'dest'};
@@ -230,7 +230,7 @@ function lerCte(root,path){
  if(t4)tom=t4;else tom=partes[TOMA[t3?tx(t3,'toma'):tx(ide,'toma')]||'rem'];
  let g=kid(kid(inf,'imp'),'ICMS'),g1=g&&g.firstElementChild;
  let nfes=[...inf.getElementsByTagNameNS('*','infNFe')].map(e=>tx(e,'chave')).filter(Boolean);
- return {v:PARSER,t:'CT-e',k:digits(inf.getAttribute('Id')),n:tx(ide,'nCT'),dt:tx(ide,'dhEmi').slice(0,10),cfop:tx(ide,'CFOP'),
+ return {v:PARSER,t:'CT-e',st:tx(any(root,'infProt'),'cStat'),k:digits(inf.getAttribute('Id')),n:tx(ide,'nCT'),dt:tx(ide,'dhEmi').slice(0,10),cfop:tx(ide,'CFOP'),
   ed:docId(emit),en:tx(emit,'xNome'),rd:docId(partes.rem),rn:tx(partes.rem,'xNome'),dd:docId(partes.dest),dn:tx(partes.dest,'xNome'),
   td:docId(tom),tn:tx(tom,'xNome'),vt:nm(kid(inf,'vPrest'),'vTPrest'),icms:g1?nm(g1,'vICMS')+nm(g1,'vICMSOutraUF'):0,
   sn:!!(g1&&g1.localName==='ICMSSN'),nfes,p:path}
@@ -241,8 +241,12 @@ function lerXml(bytes,path){
  if(any(doc,'infCte'))return lerCte(doc,path);
  if(any(doc,'infNFe'))return lerNfe(doc,path);
  let ev=any(doc,'infEvento');
- if(ev){let tp=tx(ev,'tpEvento');return {t:'Evento',k:tx(ev,'chNFe')||tx(ev,'chCTe'),cancel:tp==='110111'||tp==='110112'}}
- if(any(doc,'resNFe'))throw new Error('Resumo de NF-e: baixe o XML completo');
+ if(ev){let tp=tx(ev,'tpEvento');return {t:'Evento',k:tx(ev,'chNFe')||tx(ev,'chCTe'),cancel:tp==='110111'||tp==='110112',motivo:'Evento de cancelamento'}}
+ let res=any(doc,'resNFe');
+ if(res){let sit=tx(res,'cSitNFe');if(sit==='3'||sit==='2')return {t:'Evento',k:tx(res,'chNFe'),cancel:true,motivo:sit==='3'?'Resumo SEFAZ: cancelada':'Resumo SEFAZ: denegada'};
+  throw new Error('Resumo de NF-e: baixe o XML completo')}
+ let rev=any(doc,'resEvento');
+ if(rev){let tp=tx(rev,'tpEvento');return {t:'Evento',k:tx(rev,'chNFe'),cancel:tp==='110111'||tp==='110112',motivo:'Evento de cancelamento'}}
  return null;
 }
 
@@ -286,8 +290,9 @@ $('#registerImport').onclick=async()=>{
    r.xml++;let d;
    try{d=lerXml(bytes,nome)}catch(e){r.err++;if(r.erros.length<50)r.erros.push(nome.split('/').pop()+': '+e.message);return}
    if(!d||!d.k)return;
-   if(d.t==='Evento'){if(d.cancel&&!db.canceled[d.k]){db.canceled[d.k]=true;delete db.docs[d.k];r.canc++}return}
-   if(/cancelad/i.test(nome)&&d.t!=='Evento'){if(!db.canceled[d.k]){db.canceled[d.k]=true;delete db.docs[d.k];r.canc++}return}
+   if(d.t==='Evento'){if(d.cancel&&!db.canceled[d.k]){cancelar(d.k,d.motivo||'Evento de cancelamento',db.docs[d.k]);r.canc++}return}
+   if(CSTAT_CANCELADA[d.st]&&!db.canceled[d.k]){cancelar(d.k,'Protocolo SEFAZ: '+CSTAT_CANCELADA[d.st]+' (cStat '+d.st+')',d);r.canc++;return}
+   if(/cancelad/i.test(nome)&&d.t!=='Evento'){if(!db.canceled[d.k]){cancelar(d.k,'Arquivo na pasta de canceladas',d);r.canc++}return}
    if(db.canceled[d.k])return;
    if(db.docs[d.k]&&(db.docs[d.k].v||1)>=PARSER){r.rep++;return}
    if(db.docs[d.k]){db.docs[d.k]=d;r.atu=(r.atu||0)+1;return}
@@ -312,6 +317,17 @@ $('#registerImport').onclick=async()=>{
  if(meses.length)$('#month').dataset.want=meses.at(-1);
  changed();await saveNow();
 };
+const CSTAT_CANCELADA={'101':'cancelada','151':'cancelada fora do prazo','155':'cancelada fora do prazo','110':'denegada','301':'denegada','302':'denegada','303':'denegada'};
+function cancelar(k,motivo,doc){
+ let c={motivo,quando:new Date().toLocaleString('pt-BR')};
+ if(doc)Object.assign(c,{dt:doc.dt,n:doc.n,t:doc.t,vt:doc.vt,part:doc.t==='CT-e'?doc.en:(eEmpresa(doc.ed)?doc.dn:doc.en),doc});
+ db.canceled[k]=c;delete db.docs[k]}
+window.cancelarNf=k=>{let d=db.docs[k];if(!d)return;
+ if(!confirm(`Marcar a ${d.t} ${d.n} como CANCELADA? Ela sai de todos os cálculos. Dá para restaurar depois na Auditoria.`))return;
+ cancelar(k,'Marcada manualmente',d);changed()};
+window.restaurarNf=k=>{let c=db.canceled[k];if(!c)return;
+ if(c.doc){db.docs[k]=c.doc;delete db.canceled[k];changed()}
+ else{delete db.canceled[k];changed();alert('Cancelamento removido. Como a nota não estava importada, importe o ZIP de novo para trazê-la.')}};
 function sugerirCnpj(){let c={},nome={};
  for(let d of Object.values(db.docs)){let ps=d.t==='NF-e'?[[d.ed,d.en],[d.dd,d.dn]]:[[d.td,d.tn]];
   for(let [x,n] of ps)if(x&&x.length===14){c[x]=(c[x]||0)+1;nome[x]=nome[x]||n}}
@@ -522,7 +538,7 @@ function renderCte(m){$('#cteBaseRegra').value=db.config.cteBase||'integral';
  let ct=derivar().lancs.filter(x=>x.t==='CT-e'&&x.m===m),f=$('#cteFilter').value,cred=x=>x.icmsC+x.pisC+x.cofC;
  kpiCreditos('cte',ct);creditosMes('cte',m,x=>x.t==='CT-e');$('#cteN').textContent=ct.length;$('#cteV').textContent=brl(soma(ct,'vc'));$('#cteI').textContent=brl(soma(ct,x=>db.docs[x.k].icms));$('#cteC').textContent=brl(soma(ct,cred));
  $('#cteBody').innerHTML=ct.filter(x=>!f||x.classif===f).sort((a,b)=>a.dt.localeCompare(b.dt)).map(x=>{let d=db.docs[x.k],ov=db.cteOverride[x.k]||'';
-  return `<tr><td>${esc(x.dt)}</td><td>${esc(x.n)}</td><td>${esc(x.part)}</td><td>${esc(detectChannel(d.p)||'—')}</td><td>${esc(x.nat)}</td><td class="n">${brl(x.vc)}</td><td class="n">${brl(x.icmsC)}</td><td class="n">${brl(x.pisC)}</td><td class="n">${brl(x.cofC)}</td><td class="n"><b>${brl(cred(x))}</b></td>
+  return `<tr><td>${esc(x.dt)}</td><td>${esc(x.n)}<button class="link" style="font-size:11px;margin-left:6px" onclick="cancelarNf('${x.k}')">marcar cancelado</button></td><td>${esc(x.part)}</td><td>${esc(detectChannel(d.p)||'—')}</td><td>${esc(x.nat)}</td><td class="n">${brl(x.vc)}</td><td class="n">${brl(x.icmsC)}</td><td class="n">${brl(x.pisC)}</td><td class="n">${brl(x.cofC)}</td><td class="n"><b>${brl(cred(x))}</b></td>
   <td><select onchange="setCte('${x.k}',this.value)"><option value="" ${ov?'':'selected'}>Automático (${x.classif})</option><option ${ov==='Creditável'?'selected':''}>Creditável</option><option ${ov==='Não creditável'?'selected':''}>Não creditável</option></select></td><td class="mut">${esc(x.obs)}</td></tr>`}).join('')}
 window.setCte=(k,v)=>{if(v)db.cteOverride[k]=v;else delete db.cteOverride[k];changed()};
 const entradaNfe=x=>x.t==='NF-e'&&x.dir==='Entrada'&&x.nat!=='Devolução de venda';
@@ -572,7 +588,7 @@ function renderVendas(m){
  let vendas=lista.filter(r=>r.tipo==='Venda'),dev=lista.filter(r=>r.tipo!=='Venda');
  $('#vdN').textContent=vendas.length;$('#vdV').textContent=brl(soma(vendas,'rec'));$('#vdI').textContent=brl(soma(lista,r=>r.icms+r.difal+r.fcp+r.pis+r.cof));$('#vdD').textContent=brl(-soma(dev,'rec'));
  let tot=f=>soma(lista,f);
- $('#vdBody').innerHTML=lista.map(r=>`<tr class="nf" onclick="toggleNf('${r.k}')"><td>${esc(r.dt)}</td><td><b>${esc(r.n)}</b> ${abertas.has(r.k)?'▾':'▸'}</td><td>${esc(r.part)}</td><td>${esc(r.canal)}</td><td>${esc(r.uf)}</td><td>${r.tipo==='Venda'?'Venda':'<span class="warn">Devolução</span>'}</td><td>${esc([...r.cfop].join(', '))}</td><td class="n">${qtd(r.q)}</td><td class="n${cls(r.rec)}">${brl(r.rec)}</td><td class="n">${brl(r.icms)}</td><td class="n">${brl(r.difal)}</td><td class="n">${brl(r.fcp)}</td><td class="n">${brl(r.pis)}</td><td class="n">${brl(r.cof)}</td><td class="n">${brl(r.fees)}</td><td class="n">${brl(r.frete)}</td><td class="n">${brl(r.cmv)}</td><td class="n${cls(r.res)}"><b>${brl(r.res)}</b></td></tr>`+
+ $('#vdBody').innerHTML=lista.map(r=>`<tr class="nf" onclick="toggleNf('${r.k}')"><td>${esc(r.dt)}</td><td><b>${esc(r.n)}</b> ${abertas.has(r.k)?'▾':'▸'}<button class="link" style="font-size:11px;margin-left:6px" onclick="event.stopPropagation();cancelarNf('${r.k}')">marcar cancelada</button></td><td>${esc(r.part)}</td><td>${esc(r.canal)}</td><td>${esc(r.uf)}</td><td>${r.tipo==='Venda'?'Venda':'<span class="warn">Devolução</span>'}</td><td>${esc([...r.cfop].join(', '))}</td><td class="n">${qtd(r.q)}</td><td class="n${cls(r.rec)}">${brl(r.rec)}</td><td class="n">${brl(r.icms)}</td><td class="n">${brl(r.difal)}</td><td class="n">${brl(r.fcp)}</td><td class="n">${brl(r.pis)}</td><td class="n">${brl(r.cof)}</td><td class="n">${brl(r.fees)}</td><td class="n">${brl(r.frete)}</td><td class="n">${brl(r.cmv)}</td><td class="n${cls(r.res)}"><b>${brl(r.res)}</b></td></tr>`+
   (abertas.has(r.k)?r.itens.map(i=>`<tr class="item"><td></td><td colspan="2">${esc(i.sku)} — ${esc(i.d)}</td><td></td><td></td><td colspan="2" class="mut">${infoIcms(i.L)}${i.difal||i.fcp?` • DIFAL: interna ${qtd(i.L.pDest)}% − interestadual ${qtd(i.L.pInter)}%`:''}${i.temCusto?'':' <span class="warn">sem custo</span>'}</td><td class="n">${qtd(i.q)}</td><td class="n">${brl(i.rec)}</td><td class="n">${brl(i.icms)}</td><td class="n">${brl(i.difal)}</td><td class="n">${brl(i.fcp)}</td><td class="n">${brl(i.pis)}</td><td class="n">${brl(i.cof)}</td><td class="n">${brl(i.fees)}</td><td class="n">${brl(i.frete)}</td><td class="n">${brl(i.cmv)}</td><td class="n${cls(i.res)}">${brl(i.res)}</td></tr>`).join(''):'')).join('')+
   (lista.length?`<tr class="tot"><td colspan="7">Total (${lista.length} notas)</td><td class="n">${qtd(tot('q'))}</td><td class="n">${brl(tot('rec'))}</td><td class="n">${brl(tot('icms'))}</td><td class="n">${brl(tot('difal'))}</td><td class="n">${brl(tot('fcp'))}</td><td class="n">${brl(tot('pis'))}</td><td class="n">${brl(tot('cof'))}</td><td class="n">${brl(tot('fees'))}</td><td class="n">${brl(tot('frete'))}</td><td class="n">${brl(tot('cmv'))}</td><td class="n">${brl(tot('res'))}</td></tr>`:'<tr><td colspan="18" class="mut">Nenhuma NF de venda nesta competência.</td></tr>');
  window._vdRows=lista;
@@ -590,7 +606,7 @@ function renderCompras(m){
   r.nat.add(x.nat);r.cfop.add(x.cfop);for(let f of ['vc','ipi','st','icmsC','pisC','cofC','custo'])r[f]+=x[f];if(x.obs)r.obs.add(x.obs);r.itens.push(x)});
  let tipoCp=$('#cpTipo').value;window._cpRows=Object.values(porNota).filter(r=>(!tipoCp||(tipoCp==='compras')===[...r.nat].some(n=>COMPRAS.includes(n)))&&casa(termo,r.n,r.part,...r.itens.map(i=>i.c+' '+i.d))).sort((a,b)=>a.dt.localeCompare(b.dt));
  let tc=f=>soma(window._cpRows,f);
- $('#cpBody').innerHTML=window._cpRows.map(r=>`<tr class="nf" onclick="toggleNf('${r.k}')"><td>${esc(r.dt)}</td><td><b>${esc(r.n)}</b> ${abertas.has(r.k)?'▾':'▸'}</td><td>${esc(r.part)}</td><td>${esc([...r.nat].join(', '))}</td><td>${esc([...r.cfop].join(', '))}</td><td class="n">${brl(r.vc)}</td><td class="n">${brl(r.ipi)}</td><td class="n">${brl(r.st)}</td><td class="n">${brl(r.icmsC)}</td><td class="n">${brl(r.pisC)}</td><td class="n">${brl(r.cofC)}</td><td class="n">${brl(r.custo)}</td><td class="mut">${esc([...r.obs].join('; '))}</td></tr>`+
+ $('#cpBody').innerHTML=window._cpRows.map(r=>`<tr class="nf" onclick="toggleNf('${r.k}')"><td>${esc(r.dt)}</td><td><b>${esc(r.n)}</b> ${abertas.has(r.k)?'▾':'▸'}<button class="link" style="font-size:11px;margin-left:6px" onclick="event.stopPropagation();cancelarNf('${r.k}')">marcar cancelada</button></td><td>${esc(r.part)}</td><td>${esc([...r.nat].join(', '))}</td><td>${esc([...r.cfop].join(', '))}</td><td class="n">${brl(r.vc)}</td><td class="n">${brl(r.ipi)}</td><td class="n">${brl(r.st)}</td><td class="n">${brl(r.icmsC)}</td><td class="n">${brl(r.pisC)}</td><td class="n">${brl(r.cofC)}</td><td class="n">${brl(r.custo)}</td><td class="mut">${esc([...r.obs].join('; '))}</td></tr>`+
   (abertas.has(r.k)?r.itens.map(i=>`<tr class="item"><td></td><td colspan="3">${esc(i.c)} — ${esc(i.d)}</td><td>${esc(i.cfop)}</td><td class="n">${brl(i.vc)}<br><span class="mut">${qtd(i.q)} un. × ${brl(i.q?(i.vc-i.ipi-i.st)/i.q:0)}</span></td><td class="n">${brl(i.ipi)}</td><td class="n">${brl(i.st)}</td><td class="n">${brl(i.icmsC)}</td><td class="n">${brl(i.pisC)}</td><td class="n">${brl(i.cofC)}</td><td class="n">${brl(i.custo)}</td><td class="mut">${infoIcms(i)}${i.obs?' • '+esc(i.obs):''}</td></tr>`).join(''):'')).join('')+
   (window._cpRows.length?`<tr class="tot"><td colspan="5">Total (${window._cpRows.length} notas)</td><td class="n">${brl(tc('vc'))}</td><td class="n">${brl(tc('ipi'))}</td><td class="n">${brl(tc('st'))}</td><td class="n">${brl(tc('icmsC'))}</td><td class="n">${brl(tc('pisC'))}</td><td class="n">${brl(tc('cofC'))}</td><td class="n">${brl(tc('custo'))}</td><td></td></tr>`:'')}
 function renderApur(m){let a=apuracao(m);tabelaMeses('#apHead','#apBody',a.ms,a.linhas);window._apur=a;
@@ -618,6 +634,10 @@ function quadroConferencia(L){
   `</tbody></table></div><div class="actions" style="margin-top:8px"><button class="btn gray" onclick="csvConferencia()">Exportar CSV</button></div>`}
 window.csvConferencia=()=>csv('conferencia_ncm_reducao.csv',['Tipo','Data','NF','NCM','Código','Produto','Parceiro','UF origem','UF destino','Valor','ICMS destacado','Carga destacada %','Carga esperada %','Diferença','Status'],
  (window._conf||[]).map(({x,c})=>[x.nat==='Venda'?'Venda':'Compra',x.dt,x.n,fmtNcm(x.ncm),x.c,x.d,x.part,x.ufOrig,x.ufDest,c.merc,x.icmsNota,c.real,c.esperado,c.dif,c.status]));
+function quadroCanceladas(m){
+ let lista=Object.entries(db.canceled).map(([k,c])=>({k,...(c===true?{motivo:'Evento de cancelamento'}:c)})),doMes=lista.filter(c=>c.dt&&c.dt.startsWith(m)),semNota=lista.filter(c=>!c.dt).length;
+ return `<h3 style="margin-top:14px">Notas canceladas (fora dos cálculos)</h3><p class="mut">${lista.length} no total • ${semNota} cancelamento(s) recebidos sem a nota importada. O sistema reconhece: XML do evento de cancelamento, resumo da SEFAZ, protocolo de nota cancelada/denegada, pasta "Canceladas" no ZIP e notas marcadas por você.</p>`+
+  (doMes.length?`<div class="scroll" style="max-height:300px"><table><thead><tr><th>Data</th><th>Tipo</th><th>Número</th><th>Parceiro</th><th class="n">Valor</th><th>Motivo</th><th></th></tr></thead><tbody>${doMes.sort((a,b)=>a.dt.localeCompare(b.dt)).map(c=>`<tr><td>${esc(c.dt)}</td><td>${esc(c.t||'')}</td><td>${esc(c.n||'')}</td><td>${esc(c.part||'')}</td><td class="n">${brl(c.vt)}</td><td>${esc(c.motivo)}</td><td><button class="link" onclick="restaurarNf('${c.k}')">Restaurar</button></td></tr>`).join('')}</tbody></table></div>`:'<p>Nenhuma nota cancelada nesta competência.</p>')}
 function renderAudit(m){let d=dreMes(m),L=derivar().lancs.filter(x=>x.m===m),skus=[...new Set(d.semCusto.map(x=>x.sku))],rev=L.filter(x=>x.obs.includes('revisar'));
  let fora=Object.values(db.docs).filter(x=>x.dt.startsWith(m)&&x.t==='NF-e'&&!eEmpresa(x.ed)&&!eEmpresa(x.dd)).length;
  $('#auditText').innerHTML=`<p><b>${rotulo(m)}</b> — ${db.closed.includes(m)?'<span class="ok">FECHADA</span>':'<span class="warn">EM CONFERÊNCIA</span>'}</p><ul>
@@ -625,7 +645,7 @@ function renderAudit(m){let d=dreMes(m),L=derivar().lancs.filter(x=>x.m===m),sku
  <li>Itens com CFOP para revisar: <b class="${rev.length?'warn':'ok'}">${rev.length}</b>${rev.length?' — CFOP '+[...new Set(rev.map(x=>x.cfop))].join(', '):''}</li>
  <li>CT-e não creditáveis: <b>${L.filter(x=>x.t==='CT-e'&&x.classif!=='Creditável').length}</b></li>
  <li>NF-e em que a empresa não é emitente nem destinatária: <b class="${fora?'warn':'ok'}">${fora}</b>${fora?' (confira o CNPJ em Configuração)':''}</li>
- ${quadroReducao(L)}</ul>${quadroConferencia(L)}<ul><li>Regras de comissão cadastradas: <b class="${db.channels.length?'ok':'warn'}">${db.channels.length}</b></li></ul>
+ ${quadroReducao(L)}</ul>${quadroConferencia(L)}${quadroCanceladas(m)}<ul><li>Regras de comissão cadastradas: <b class="${db.channels.length?'ok':'warn'}">${db.channels.length}</b></li></ul>
  <p>O fechamento só é definitivo após conciliar vendas, custos por vigência, documentos fiscais, CT-e, marketplace e financeiro.</p>`}
 function renderConfig(){let c=db.config;
  $('#ncmBody').innerHTML=(c.ncmReducao||[]).map((r,i)=>`<tr><td><b>${esc(r.ncm)}</b></td><td class="n">${qtd(r.carga)}%</td><td class="n">${qtd(r.cargaNNE)}%</td><td><button class="link" onclick="delNcm(${i})">Excluir</button></td></tr>`).join('')||'<tr><td colspan="4" class="mut">Nenhum NCM cadastrado.</td></tr>';$('#cfgCnpj').value=c.cnpjs.join(', ');$('#cfgPis').value=c.pis;$('#cfgCof').value=c.cofins;

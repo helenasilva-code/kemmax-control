@@ -234,3 +234,55 @@ def test_html_reducao_base_e_difal(tmp_path):
         assert float(page.input_value("#piscred")) == pytest.approx((100 - 8.7996) * 0.0165, abs=0.01)
         assert erros == []
         browser.close()
+
+
+def test_html_cancelamentos(tmp_path):
+    compra = nfe("35260822222222000122550010000075151000075151", FORNECEDOR, EMPRESA,
+                 [_item(1, "5102", 1850.0, 0.0, codigo="COFRE")], data="2026-08-05")
+    compra2 = nfe("35260822222222000122550010000075161000075161", FORNECEDOR, EMPRESA,
+                  [_item(1, "5102", 500.0, 60.0, codigo="X")], data="2026-08-06")
+    # nota cujo protocolo já vem como cancelada (cStat 101)
+    compra3 = nfe("35260822222222000122550010000075171000075171", FORNECEDOR, EMPRESA,
+                  [_item(1, "5102", 700.0, 84.0, codigo="Y")], data="2026-08-07") \
+        .replace("</NFe>", "</NFe><protNFe><infProt><chNFe>35260822222222000122550010000075171000075171</chNFe><cStat>101</cStat></infProt></protNFe>")
+    # resumo da SEFAZ (distribuição DF-e) informando a nota 7516 como cancelada
+    resumo = ('<resNFe xmlns="http://www.portalfiscal.inf.br/nfe"><chNFe>35260822222222000122550010000075161000075161</chNFe>'
+              '<cSitNFe>3</cSitNFe></resNFe>')
+    caminho = tmp_path / "canc.zip"
+    with zipfile.ZipFile(caminho, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("compra.xml", compra)
+        zf.writestr("compra2.xml", compra2)
+        zf.writestr("compra3.xml", compra3)
+        zf.writestr("resumo.xml", resumo)
+    chromium = glob.glob("/opt/pw-browsers/chromium*/chrome-linux*/chrome")
+    with sync_api.sync_playwright() as p:
+        browser = p.chromium.launch(executable_path=chromium[0] if chromium else None)
+        page = browser.new_page()
+        erros = []
+        page.on("pageerror", lambda e: erros.append(str(e)))
+        page.on("dialog", lambda d: d.accept())
+        page.goto("file://" + HTML)
+        page.wait_for_function("window.document.querySelector('#month').options.length>0")
+        page.evaluate(f"db.config.cnpjs=['{EMPRESA}']")
+        page.click("text=Importações")
+        page.set_input_files("#files", str(caminho))
+        page.click("#registerImport")
+        page.wait_for_selector("text=Importação concluída.")
+        assert "2 cancelamentos" in page.inner_text("#importResult")
+        assert page.evaluate("Object.keys(db.docs).length") == 1
+        page.select_option("#month", "2026-08")
+
+        page.click("text=NF de Compra")
+        assert _valor(page, "#cpV") == pytest.approx(1850)
+        page.click("#cpBody >> text=marcar cancelada")
+        assert _valor(page, "#cpV") == pytest.approx(0)
+
+        page.click("text=Auditoria")
+        audit = page.inner_text("#auditText")
+        assert "Marcada manualmente" in audit and "Protocolo SEFAZ: cancelada (cStat 101)" in audit
+        assert "Resumo SEFAZ: cancelada" in audit and "0 cancelamento(s) recebidos sem a nota importada" in audit
+        page.click("#auditText >> tr:has-text('Marcada manualmente') >> text=Restaurar")
+        page.click("text=NF de Compra")
+        assert _valor(page, "#cpV") == pytest.approx(1850)
+        assert erros == []
+        browser.close()
