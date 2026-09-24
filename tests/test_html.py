@@ -127,6 +127,11 @@ def test_html_completo(tmp_path):
         assert apur[6] == pytest.approx(0) and apur[7] == pytest.approx(360 - 72 - 12 - 180)
 
         page.click("text=NF de Venda")
+        page.click("#vdAbas >> text=Vendas para SP")
+        assert page.inner_text("#vdN") == "1" and _valor(page, "#vdV") == pytest.approx(2000)
+        page.click("#vdAbas >> text=Vendas para outros estados")
+        assert page.inner_text("#vdN") == "0"
+        page.click("#vdAbas >> text=Todas")
         assert page.inner_text("#vdN") == "1"
         assert _valor(page, "#vdV") == pytest.approx(2000)
         assert _valor(page, "#vdD") == pytest.approx(400)
@@ -201,6 +206,11 @@ def test_html_reducao_base_e_difal(tmp_path):
         page.select_option("#month", "2026-08")
 
         page.click("text=NF de Venda")
+        page.click("#vdAbas >> text=Vendas para SP")
+        assert page.inner_text("#vdN") == "0"
+        page.click("#vdAbas >> text=Vendas para outros estados")
+        assert page.inner_text("#vdN") == "1" and "BA" in page.inner_text("#vdBody")
+        page.click("#vdAbas >> text=Todas")
         uf = page.inner_text("#vdUf").replace("\xa0", " ")
         assert "BA" in uf and "R$ 246,00" in uf and "R$ 60,00" in uf and "R$ 306,00" in uf
         page.click("#vdBody tr.nf >> nth=0")
