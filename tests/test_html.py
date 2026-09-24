@@ -29,6 +29,9 @@ def _zip(tmp_path):
         zf.writestr("Mercado Livre/venda.xml", venda)
         zf.writestr("ERP/venda-copia.xml", venda)
         zf.writestr("Meli/devolucao.xml", devol)
+        zf.writestr("Meli/retorno-full.xml",
+                    nfe("35260703007331000141550010000000771000000077", "03007331000141", EMPRESA,
+                        [_item(1, "6907", 5000.0, 0.0, codigo="POLA405")], data="2026-07-15"))
         zf.writestr("Canceladas/venda-cancelada.xml",
                     nfe("35260811111111000111550010000000991000000099", EMPRESA, CLIENTE, [_item(1, "5102", 999.0, 0.0)]))
         interno = io.BytesIO()
@@ -64,7 +67,7 @@ def test_html_completo(tmp_path):
         page.click("#registerImport")
         page.wait_for_selector("text=Importação concluída.")
         resultado = page.inner_text("#importResult")
-        assert "4 novos" in resultado and "1 repetidos" in resultado and "1 cancelamentos" in resultado
+        assert "5 novos" in resultado and "1 repetidos" in resultado and "1 cancelamentos" in resultado
         assert EMPRESA in resultado  # CNPJ definido automaticamente
 
         page.click("text=Canais e Tarifas")
@@ -145,9 +148,16 @@ def test_html_completo(tmp_path):
         assert _valor(page, "#cpBase") == pytest.approx(820)
         mes = page.inner_text("#cpMes")
         assert "Jul/26" in mes and "Total no ano" in mes
+        jul = page.evaluate("window._cpMes.find(r=>r.m==='2026-07')")
+        assert jul["docs"] == 1 and jul["vc"] == pytest.approx(1000) and jul["oDocs"] == 1 and jul["oVc"] == pytest.approx(5000)
+        assert "Retorno de depósito / armazém (FULL)" in page.inner_text("#cpNat")
         page.click("#cpBody tr.nf >> nth=0")
         assert "FORN-9" in page.inner_text("#cpBody")
         assert "Total (1 notas)" in page.inner_text("#cpBody")
+        page.select_option("#cpTipo", "outras")
+        assert "Retorno de depósito" in page.inner_text("#cpBody") and "FORN-9" not in page.inner_text("#cpBody")
+        page.select_option("#cpTipo", "")
+        assert "Total (2 notas)" in page.inner_text("#cpBody")
 
         # recarregar: dados persistem no IndexedDB
         page.reload()
