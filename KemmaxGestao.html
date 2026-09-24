@@ -31,7 +31,7 @@ td.n,th.n{text-align:right}tr.tot td{font-weight:700;background:#f8fafc}.link.de
 <button data-p="prod">Produtos e Custos</button><button data-p="rent">Rentabilidade por Produto</button>
 <button data-p="channels">Canais e Tarifas</button><button data-p="cte">CT-e e Créditos</button>
 <button data-p="vendas">NF de Venda</button><button data-p="compras">NF de Compra</button><button data-p="apur">Apuração Impostos</button>
-<button data-p="dre">DRE Mensal</button><button data-p="finance">Financeiro / Extrato</button><button data-p="ap">Contas a Pagar</button>
+<button data-p="dre">DRE Mensal</button><button data-p="finance">Financeiro / Extrato</button><button data-p="ap">Contas a Pagar</button><button data-p="ar">Contas a Receber</button>
 <button data-p="audit">Auditoria</button><button data-p="config">Configuração e Backup</button>
 </nav></aside>
 <main>
@@ -166,6 +166,20 @@ td.n,th.n{text-align:right}tr.tot td{font-weight:700;background:#f8fafc}.link.de
 <button class="btn gray" id="cpgCsv">Exportar CSV</button><button class="btn red" onclick="excluirApListado()">Excluir contas listadas</button></div>
 <div class="scroll"><table><thead><tr><th>Vencimento</th><th>Fornecedor</th><th>Descrição</th><th>Categoria no relatório</th><th>Documento</th><th class="n">Valor</th><th>Situação</th><th>Pago em</th><th>No extrato?</th><th>Categoria</th><th></th></tr></thead><tbody id="cpgBody"></tbody></table></div></div></section>
 
+<section class="page" id="ar"><div class="card"><h2>Contas a Receber</h2>
+<p>Importe o relatório de contas a receber do seu sistema (CSV ou Excel .xlsx): vencimento, cliente, descrição, categoria/canal, valor, situação, data de recebimento, documento. Importar de novo <b>atualiza</b> as contas sem duplicar. Contas a receber <b>não entram na DRE</b>: a receita vem das NF-e de venda.</p>
+<div class="actions"><label>Relatório (.csv, .xlsx)<input type="file" id="arFiles" multiple accept=".csv,.txt,.xlsx"></label><button class="primary" id="arImport">Importar contas a receber</button></div>
+<div id="arResult" style="margin-top:10px"></div></div>
+<div class="grid"><div class="card kpi"><span>Total a receber em aberto</span><b id="arAberto">R$ 0,00</b></div><div class="card kpi"><span>Vencidas (atrasadas)</span><b id="arVenc">R$ 0,00</b></div><div class="card kpi"><span>A receber em 30 dias</span><b id="ar30">R$ 0,00</b></div><div class="card kpi"><span>Recebidas na competência</span><b id="arRec">R$ 0,00</b></div></div>
+<div class="card"><h3>Fluxo de caixa projetado (contas em aberto por mês de vencimento)</h3><p class="mut">A receber − a pagar. Informe o saldo atual em conta para ver o saldo acumulado.</p>
+<div class="actions" style="margin-bottom:10px"><label>Saldo atual em conta R$<input type="number" step=".01" id="arSaldoIni"></label></div>
+<table><thead><tr><th>Vencimento</th><th class="n">A receber</th><th class="n">A pagar</th><th class="n">Saldo do período</th><th class="n">Saldo acumulado</th></tr></thead><tbody id="arFluxo"></tbody></table></div>
+<div class="card"><h3>Contas</h3>
+<div class="actions" style="margin-bottom:10px"><label>Situação<select id="arSit"><option value="aberto">Em aberto</option><option value="vencido">Vencidas</option><option value="pago">Recebidas</option><option value="cancelado">Canceladas</option><option value="">Todas</option></select></label>
+<label>Período<select id="arPer"><option value="">Todos os vencimentos</option><option value="m">Vencimento na competência</option></select></label><label>Buscar<input id="arBusca" placeholder="Cliente, descrição, documento"></label>
+<button class="btn gray" id="arCsv">Exportar CSV</button><button class="btn red" onclick="excluirArListado()">Excluir contas listadas</button></div>
+<div class="scroll"><table><thead><tr><th>Vencimento</th><th>Cliente</th><th>Descrição</th><th>Categoria / canal</th><th>Documento</th><th class="n">Valor</th><th>Situação</th><th>Recebido em</th><th>No extrato?</th><th></th></tr></thead><tbody id="arBody"></tbody></table></div></div></section>
+
 <section class="page" id="audit"><div class="card"><h2>Auditoria e Fechamento</h2><div id="auditText"></div><button class="primary" id="closeMonth">Fechar competência selecionada</button> <button class="btn gray" id="openMonth">Reabrir competência</button>
 <p class="mut">Competência fechada não recebe novos documentos na importação.</p></div></section>
 
@@ -207,7 +221,7 @@ const PARSER=2;
 const CNPJ_KEMMAX='48221981000123';
 function novoDb(){return {config:{cnpjs:[CNPJ_KEMMAX],cteBase:'integral',fonteDre:'extrato',pis:1.65,cofins:7.6,exDeb:true,exCred:true,ipi:true,st:false,ncmReducao:NCM_PADRAO.map(x=>({...x}))},
  docs:{},canceled:{},products:[],channels:[],channelMap:CANAIS_PADRAO.map(([name,cnpj])=>({name,cnpj})),
- cteOverride:{},trash:{},bank:{},bankRules:null,ap:{},imports:[],expenses:[],extras:[],closed:[],saldos:{icms:0,pis:0,cofins:0}}}
+ cteOverride:{},trash:{},bank:{},bankRules:null,ap:{},ar:{},saldoConta:0,imports:[],expenses:[],extras:[],closed:[],saldos:{icms:0,pis:0,cofins:0}}}
 
 // ------------------------------------------------------------------ IndexedDB
 function openDB(){return new Promise((res,rej)=>{let r=indexedDB.open('KemmaxGestaoLucroReal',4);
@@ -555,20 +569,20 @@ async function linhasXlsx(bytes){
   return [...out].map(x=>x??'')})}
 function dataPlanilha(v){v=String(v??'').trim();if(/^\d{5}(\.\d+)?$/.test(v)){let d=new Date(Date.UTC(1899,11,30)+Math.floor(+v)*864e5);return d.toISOString().slice(0,10)}return dataBr(v)}
 function valorPlanilha(v){v=String(v??'').trim();return /^-?\d+(\.\d+)?(e-?\d+)?$/i.test(v)?parseFloat(v):valorBr(v)}
-function lerContasPagar(rows,arquivo){
+function lerContasPagar(rows,arquivo,prefixo='ap'){
  let norm=h=>semAcento(h).toLowerCase().trim(),hi=-1,cab=[];
  for(let i=0;i<Math.min(rows.length,40);i++){let c=rows[i].map(norm);if(c.some(x=>/venc/.test(x))&&c.some(x=>/valor|total/.test(x))){hi=i;cab=c;break}}
  if(hi<0)throw new Error('não encontrei o cabeçalho com Vencimento e Valor. Primeiras linhas: '+rows.slice(0,3).map(r=>r.join(' | ')).join(' / '));
  let ix=(re,nao)=>cab.findIndex(x=>re.test(x)&&!(nao&&nao.test(x)));
- let c={venc:ix(/venc/),forn:ix(/fornec|contato|favorecido|credor|razao|^nome|beneficiario/),desc:ix(/hist|descr|observ|referente/),cat:ix(/categ|plano de conta|conta contabil|classific/),
-  valor:ix(/valor|total/,/pago|liquid|baixad|saldo|juros|multa|desc|acresc|aberto/),pago:ix(/valor (pago|liquidado|baixado)/),dpag:ix(/(data|dt).*(pag|liquid|baixa|quita)|^pago em|^pagamento$/),
+ let c={venc:ix(/venc/),forn:ix(/fornec|cliente|sacado|devedor|pagador|contato|favorecido|credor|razao|^nome|beneficiario/),desc:ix(/hist|descr|observ|referente/),cat:ix(/categ|plano de conta|conta contabil|classific/),
+  valor:ix(/valor|total/,/pago|receb|liquid|baixad|saldo|juros|multa|desc|acresc|aberto|taxa|tarifa/),pago:ix(/valor (pago|recebido|liquidado|baixado)/),dpag:ix(/(data|dt).*(pag|receb|liquid|baixa|quita|credito)|^pago em|^recebido em|^pagamento$|^recebimento$/),
   sit:ix(/situa|status/),doc:ix(/documento|n.? ?doc|numero|^nf|nota/),emis:ix(/compet|emiss/),parc:ix(/parcela/)};
  let g=(r,k)=>c[k]>=0?String(r[c[k]]??'').trim():'',out=[],vistos={};
  for(let r of rows.slice(hi+1)){let venc=dataPlanilha(g(r,'venc')),valor=Math.abs(valorPlanilha(g(r,'valor')));if(!venc||!isFinite(valor)||!valor)continue;
   let sit=norm(g(r,'sit')),dpag=dataPlanilha(g(r,'dpag')),vpago=Math.abs(valorPlanilha(g(r,'pago')))||0;
-  let status=/cancel|excluid|estorn/.test(sit)?'cancelado':(/pag|liquid|quitad|baixad/.test(sit)&&!/nao pag|a pagar|parcial/.test(sit))||(!sit&&dpag)?'pago':'aberto';
+  let status=/cancel|excluid|estorn/.test(sit)?'cancelado':(/pag|receb|liquid|quitad|baixad/.test(sit)&&!/nao pag|nao receb|a pagar|a receber|parcial/.test(sit))||(!sit&&dpag)?'pago':'aberto';
   let base=[g(r,'forn'),g(r,'doc'),venc,valor.toFixed(2),g(r,'parc'),g(r,'desc')].join('|');vistos[base]=(vistos[base]||0)+1;
-  out.push({id:'ap|'+base+'|'+vistos[base],venc,forn:g(r,'forn'),desc:g(r,'desc'),catRel:g(r,'cat'),doc:g(r,'doc'),valor,status,dpag,vpago:vpago||(status==='pago'?valor:0),
+  out.push({id:prefixo+'|'+base+'|'+vistos[base],venc,forn:g(r,'forn'),desc:g(r,'desc'),catRel:g(r,'cat'),doc:g(r,'doc'),valor,status,dpag,vpago:vpago||(status==='pago'?valor:0),
    comp:dataPlanilha(g(r,'emis'))||venc,arquivo})}
  return out}
 const hoje=()=>new Date().toISOString().slice(0,10);
@@ -577,6 +591,10 @@ function conciliarAp(){ // conta paga x débito do extrato: mesmo valor e data a
  let usados=new Set(),deb=Object.values(db.bank).filter(t=>t.valor<0);
  for(let a of Object.values(db.ap)){a.extrato='';if(a.status!=='pago')continue;let ref=a.dpag||a.venc,alvo=a.vpago||a.valor;
   let t=deb.find(t=>!usados.has(t.id)&&Math.abs(-t.valor-alvo)<0.01&&Math.abs((new Date(t.dt)-new Date(ref))/864e5)<=5);
+  if(t){usados.add(t.id);a.extrato=t.dt+' • '+t.desc}}}
+function conciliarAr(){let usados=new Set(),cred=Object.values(db.bank).filter(t=>t.valor>0);
+ for(let a of Object.values(db.ar)){a.extrato='';if(a.status!=='pago')continue;let ref=a.dpag||a.venc,alvo=a.vpago||a.valor;
+  let t=cred.find(t=>!usados.has(t.id)&&Math.abs(t.valor-alvo)<0.01&&Math.abs((new Date(t.dt)-new Date(ref))/864e5)<=5);
   if(t){usados.add(t.id);a.extrato=t.dt+' • '+t.desc}}}
 function despesasMes(m){let e={};db.expenses.filter(x=>x.month===m).forEach(x=>e[x.cat]=(e[x.cat]||0)+(+x.value||0));
  if((db.config.fonteDre||'extrato')==='extrato'){for(let tx of Object.values(db.bank||{}))if(tx.dt.startsWith(m)&&CAT_DRE.includes(tx.cat))e[tx.cat]=(e[tx.cat]||0)+(tx.cat==='Receitas financeiras'?tx.valor:-tx.valor)}
@@ -622,7 +640,7 @@ function linhasDre(ate){
   ['= Resultado antes IRPJ/CSLL',g(d=>d.lair)],['(−) CSLL 9%',g(d=>-d.csll)],['(−) IRPJ 15% + adicional 10%',g(d=>-d.irpj)],['= Lucro líquido (DRE)',g(d=>d.liq)],
   ['(−) Pago adicional (CMV Financeiro − CMV DRE)',g(d=>-d.adic)],['= Resultado financeiro (caixa)',g(d=>d.caixa)]]}}
 
-function mesesDisponiveis(){let a=new Set();Object.values(db.docs).forEach(d=>d.dt&&a.add(d.dt.slice(0,7)));Object.values(db.bank||{}).forEach(t=>a.add(t.dt.slice(0,7)));Object.values(db.ap||{}).forEach(x=>a.add(x.venc.slice(0,7)));
+function mesesDisponiveis(){let a=new Set();Object.values(db.docs).forEach(d=>d.dt&&a.add(d.dt.slice(0,7)));Object.values(db.bank||{}).forEach(t=>a.add(t.dt.slice(0,7)));Object.values(db.ap||{}).forEach(x=>a.add(x.venc.slice(0,7)));Object.values(db.ar||{}).forEach(x=>a.add(x.venc.slice(0,7)));
  let hoje=new Date(),y=hoje.getFullYear();for(let i=1;i<=hoje.getMonth()+1;i++)a.add(`${y}-${String(i).padStart(2,'0')}`);return [...a].sort()}
 function initMonths(){let sel=$('#month'),cur=sel.dataset.want||sel.value,ms=mesesDisponiveis();delete sel.dataset.want;
  sel.innerHTML=ms.map(m=>`<option value="${m}">${rotulo(m)}</option>`).join('');sel.value=ms.includes(cur)?cur:(ms.at(-1)||'')}
@@ -808,6 +826,26 @@ window.regraAp=i=>{let a=(window._apRows||[])[i];if(!a)return;if(!a.cat)return a
  db.bankRules.unshift({txt:txt.trim(),cat:a.cat,sinal:''});aplicarRegras(false);aplicarRegrasAp(false);changed()};
 function aplicarRegrasAp(todos){let n=0;for(let a of Object.values(db.ap)){if(a.origem==='manual')continue;if(!todos&&a.cat)continue;
  let c=regraExtrato({desc:textoAp(a),valor:-a.valor});if(c!==a.cat){a.cat=c;a.origem=c?'regra':'';n++}}return n}
+function renderAr(m){
+ conciliarAr();let A=Object.values(db.ar),hj=hoje(),em30=new Date(Date.now()+30*864e5).toISOString().slice(0,10),ab=A.filter(a=>a.status==='aberto');
+ $('#arAberto').textContent=brl(soma(ab,'valor'));$('#arVenc').textContent=brl(soma(ab.filter(a=>a.venc<hj),'valor'));$('#arVenc').className=ab.some(a=>a.venc<hj)?'bad':'ok';
+ $('#ar30').textContent=brl(soma(ab.filter(a=>a.venc>=hj&&a.venc<=em30),'valor'));$('#arRec').textContent=brl(soma(A.filter(a=>a.status==='pago'&&(a.dpag||a.venc).startsWith(m)),a=>a.vpago||a.valor));
+ if(document.activeElement!==$('#arSaldoIni'))$('#arSaldoIni').value=db.saldoConta||'';
+ let fl={},chave=v=>v<hj?'Vencidas':v.slice(0,7);
+ ab.forEach(a=>{let f=fl[chave(a.venc)]=fl[chave(a.venc)]||{r:0,p:0};f.r+=a.valor});
+ Object.values(db.ap).filter(a=>a.status==='aberto').forEach(a=>{let f=fl[chave(a.venc)]=fl[chave(a.venc)]||{r:0,p:0};f.p+=a.valor});
+ let acum=+db.saldoConta||0;
+ $('#arFluxo').innerHTML=Object.keys(fl).sort((a,b)=>a==='Vencidas'?-1:b==='Vencidas'?1:a.localeCompare(b)).map(k=>{let f=fl[k];acum+=f.r-f.p;
+  return `<tr><td>${k==='Vencidas'?'<span class="bad">Vencidas (em atraso)</span>':rotulo(k)}</td><td class="n">${brl(f.r)}</td><td class="n">${brl(f.p)}</td><td class="n${cls(f.r-f.p)}"><b>${brl(f.r-f.p)}</b></td><td class="n${cls(acum)}"><b>${brl(acum)}</b></td></tr>`}).join('')||'<tr><td colspan="5" class="mut">Importe contas a pagar e a receber para ver o fluxo projetado.</td></tr>';
+ let sit=$('#arSit').value,per=$('#arPer').value,termo=semAcento($('#arBusca').value.trim());
+ let L=A.filter(a=>(!sit||situacaoAp(a)===sit||(sit==='aberto'&&situacaoAp(a)==='vencido'))&&(!per||a.venc.startsWith(m))&&(!termo||semAcento([a.forn,a.desc,a.doc,a.catRel].join(' ')).includes(termo))).sort((a,b)=>a.venc.localeCompare(b.venc));
+ window._arRows=L;
+ let rot={aberto:'Em aberto',vencido:'<span class="bad">Vencida</span>',pago:'<span class="ok">Recebida</span>',cancelado:'<span class="mut">Cancelada</span>'};
+ $('#arBody').innerHTML=L.slice(0,800).map((a,i)=>`<tr><td>${esc(a.venc)}</td><td>${esc(a.forn)}</td><td style="white-space:normal;min-width:200px">${esc(a.desc)}</td><td class="mut">${esc(a.catRel)}</td><td>${esc(a.doc)}</td><td class="n"><b>${brl(a.valor)}</b></td><td>${rot[situacaoAp(a)]}</td><td>${esc(a.dpag)}</td><td>${a.status!=='pago'?'—':a.extrato?`<span class="ok" title="${esc(a.extrato)}">Sim</span>`:'<span class="warn">Não</span>'}</td><td><button class="link del" onclick="excluirAr(${i})">excluir</button></td></tr>`).join('')+
+  (L.length>800?`<tr><td colspan="10" class="mut">Mostrando 800 de ${L.length}.</td></tr>`:'')+(!L.length?'<tr><td colspan="10" class="mut">Nenhuma conta com esse filtro.</td></tr>':'')+
+  (L.length?`<tr class="tot"><td colspan="5">Total (${L.length} contas)</td><td class="n">${brl(soma(L,'valor'))}</td><td colspan="4"></td></tr>`:'')}
+window.excluirAr=i=>{let a=(window._arRows||[])[i];if(a&&confirm('Excluir esta conta?')){delete db.ar[a.id];changed()}};
+window.excluirArListado=()=>{let L=window._arRows||[];if(!L.length)return;if(!confirm(`Excluir ${L.length} conta(s) listadas?`))return;L.forEach(a=>delete db.ar[a.id]);changed()};
 function renderExp(){$('#expBody').innerHTML=db.expenses.slice().sort((a,b)=>a.month.localeCompare(b.month)).map(e=>`<tr><td>${rotulo(e.month)}</td><td>${esc(e.cat)}</td><td>${esc(e.desc)}</td><td class="n">${brl(e.value)}</td><td><button class="link" onclick="delExp(${db.expenses.indexOf(e)})">Excluir</button></td></tr>`).join('')||'<tr><td colspan="5" class="mut">Nenhuma despesa lançada.</td></tr>'}
 function quadroReducao(L){
  let R=L.filter(x=>x.t==='NF-e'&&x.icmsNota!==undefined&&reduzido(x)&&(COMPRAS.includes(x.nat)||x.nat==='Venda'));
@@ -851,7 +889,7 @@ function render(){
  let pg=($('#nav button.active')||{}).dataset?.p||'dash';
  renderDash(m);
  ({import:renderImports,prod:renderProducts,rent:()=>renderRent(m),channels:renderChannels,cte:()=>renderCte(m),vendas:()=>renderVendas(m),compras:()=>renderCompras(m),
-   apur:()=>renderApur(m),dre:()=>renderDre(m),finance:()=>renderFin(m),ap:()=>renderAp(m),audit:()=>renderAudit(m),config:renderConfig}[pg]||(()=>{}))();
+   apur:()=>renderApur(m),dre:()=>renderDre(m),finance:()=>renderFin(m),ap:()=>renderAp(m),ar:()=>renderAr(m),audit:()=>renderAudit(m),config:renderConfig}[pg]||(()=>{}))();
 }
 
 // ------------------------------------------------------------------ ações
@@ -926,6 +964,19 @@ $('#apImport').onclick=async()=>{let fs=[...$('#apFiles').files];if(!fs.length)r
    $('#apResult').insertAdjacentHTML('beforeend',`<div class="note" style="margin-bottom:6px"><b>${esc(f.name)}</b>: ${L.length} contas lidas • <b>${novos} novas</b> • ${atu} atualizadas • ${L.filter(a=>a.status==='aberto').length} em aberto • ${L.filter(a=>a.status==='pago').length} pagas</div>`)}
   catch(e){$('#apResult').insertAdjacentHTML('beforeend',`<div class="note red"><b>${esc(f.name)}</b>: ${esc(e.message)}</div>`)}}
  changed()};
+$('#arImport').onclick=async()=>{let fs=[...$('#arFiles').files];if(!fs.length)return alert('Selecione o relatório de contas a receber (.csv ou .xlsx).');
+ $('#arResult').innerHTML='';
+ for(let f of fs){try{let bytes=new Uint8Array(await f.arrayBuffer()),rows;
+   if(/\.xlsx$/i.test(f.name))rows=await linhasXlsx(bytes);else{let txt=new TextDecoder('utf-8').decode(bytes);if(txt.includes('\uFFFD'))txt=new TextDecoder('latin1').decode(bytes);rows=linhasCsv(txt)}
+   let L=lerContasPagar(rows,f.name,'ar'),novos=0,atu=0;
+   for(let a of L){let old=db.ar[a.id];if(old){Object.assign(old,{status:a.status,dpag:a.dpag,vpago:a.vpago,catRel:a.catRel,comp:a.comp});atu++}else{db.ar[a.id]=a;novos++}}
+   $('#arResult').insertAdjacentHTML('beforeend',`<div class="note" style="margin-bottom:6px"><b>${esc(f.name)}</b>: ${L.length} contas lidas • <b>${novos} novas</b> • ${atu} atualizadas • ${L.filter(a=>a.status==='aberto').length} em aberto • ${L.filter(a=>a.status==='pago').length} recebidas</div>`)}
+  catch(e){$('#arResult').insertAdjacentHTML('beforeend',`<div class="note red"><b>${esc(f.name)}</b>: ${esc(e.message)}</div>`)}}
+ changed()};
+['#arSit','#arPer'].forEach(x=>$(x).onchange=render);$('#arBusca').oninput=render;
+$('#arSaldoIni').onchange=()=>{db.saldoConta=num('#arSaldoIni');changed()};
+$('#arCsv').onclick=()=>csv('contas_a_receber.csv',['Vencimento','Cliente','Descrição','Categoria/canal','Documento','Valor','Situação','Recebido em','Valor recebido','No extrato'],
+ (window._arRows||[]).map(a=>[a.venc,a.forn,a.desc,a.catRel,a.doc,a.valor,situacaoAp(a)==='pago'?'recebida':situacaoAp(a),a.dpag,a.vpago,a.extrato?'Sim':'Não']));
 $('#fonteDre').onchange=()=>{db.config.fonteDre=$('#fonteDre').value;changed()};
 ['#apSit','#apPer'].forEach(x=>$(x).onchange=render);$('#apBusca').oninput=render;
 $('#cpgCsv').onclick=()=>csv('contas_a_pagar.csv',['Vencimento','Fornecedor','Descrição','Categoria no relatório','Documento','Valor','Situação','Pago em','Valor pago','No extrato','Categoria','Entra na DRE'],

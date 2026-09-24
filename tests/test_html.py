@@ -542,3 +542,53 @@ def test_html_ids_unicos():
     import re
     ids = re.findall(r'id="([^"]+)"', open(HTML, encoding="utf-8").read())
     assert sorted({i for i in ids if ids.count(i) > 1}) == []
+
+
+CSV_RECEBER = """Vencimento;Cliente;Histórico;Categoria;Documento;Valor;Situação;Data recebimento
+04/08/2026;Mercado Livre;Repasse vendas julho;Marketplace;R-01;12.500,00;Recebido;04/08/2026
+15/08/2026;Gráfica Alfa Ltda;NF 1201;Venda direta;1201;2.300,00;Em aberto;
+10/01/2099;Gráfica Alfa Ltda;NF 1202;Venda direta;1202;5.000,00;Em aberto;
+"""
+
+
+def test_html_contas_a_receber(tmp_path):
+    (tmp_path / "receber.csv").write_text(CSV_RECEBER, encoding="utf-8")
+    (tmp_path / "banco.ofx").write_text(OFX, encoding="latin-1")
+    _xlsx_contas(tmp_path / "contas.xlsx")
+    chromium = glob.glob("/opt/pw-browsers/chromium*/chrome-linux*/chrome")
+    with sync_api.sync_playwright() as p:
+        browser = p.chromium.launch(executable_path=chromium[0] if chromium else None)
+        page = browser.new_page()
+        erros = []
+        page.on("pageerror", lambda e: erros.append(str(e)))
+        page.on("dialog", lambda d: d.accept())
+        page.goto("file://" + HTML)
+        page.wait_for_function("window.document.querySelector('#month').options.length>0")
+        page.click("text=Financeiro / Extrato")
+        page.set_input_files("#bkFiles", str(tmp_path / "banco.ofx"))
+        page.click("#bkImport")
+        page.wait_for_function("document.querySelector('#bkResult').innerText.includes('banco.ofx')")
+        page.click("text=Contas a Pagar")
+        page.set_input_files("#apFiles", str(tmp_path / "contas.xlsx"))
+        page.click("#apImport")
+        page.wait_for_function("document.querySelector('#apResult').innerText.includes('contas.xlsx')")
+
+        page.click("text=Contas a Receber")
+        page.set_input_files("#arFiles", str(tmp_path / "receber.csv"))
+        page.click("#arImport")
+        page.wait_for_function("document.querySelector('#arResult').innerText.includes('receber.csv')")
+        assert "3 contas lidas" in page.inner_text("#arResult")
+        page.select_option("#month", "2026-08")
+        assert _valor(page, "#arAberto") == pytest.approx(7300)
+        assert _valor(page, "#arVenc") == pytest.approx(2300)
+        assert _valor(page, "#arRec") == pytest.approx(12500)
+        page.select_option("#arSit", "pago")
+        assert "Sim" in page.inner_text("#arBody")     # repasse encontrado no extrato
+
+        page.fill("#arSaldoIni", "1000")
+        page.dispatch_event("#arSaldoIni", "change")
+        fluxo = page.inner_text("#arFluxo").replace("\xa0", " ")
+        # vencidas: +2.300 a receber, -3.200 a pagar; jan/2099: +5.000, -12.000
+        assert "-R$ 900,00" in fluxo and "R$ 100,00" in fluxo and "-R$ 6.900,00" in fluxo
+        assert erros == []
+        browser.close()
