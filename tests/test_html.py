@@ -123,6 +123,7 @@ def test_html_completo(tmp_path):
         assert _valor(page, "#ctePis") == pytest.approx(1.65)
 
         page.click("text=Apuração Impostos")
+        assert "ICMS — Débitos (vendas)" in page.inner_text("#apBody")
         apur = page.evaluate("window._apur.linhas.filter(l=>l[0].startsWith('ICMS — A recolher'))[0][1]")
         assert apur[6] == pytest.approx(0) and apur[7] == pytest.approx(360 - 72 - 12 - 180)
 
@@ -456,3 +457,88 @@ def test_html_extrato(tmp_path):
         assert linha_dre("Receita bruta de vendas") == pytest.approx(0)
         assert erros == []
         browser.close()
+
+
+def _xlsx_contas(caminho, pago_aluguel=False):
+    import datetime
+    import openpyxl
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(["Relatório de contas a pagar"])
+    ws.append([])
+    ws.append(["Data vencimento", "Nome do contato", "Histórico", "Categoria", "Nº documento", "Valor",
+               "Situação", "Data pagamento", "Valor pago"])
+    ws.append([datetime.date(2026, 8, 5), "Imobiliária Centro", "Aluguel agosto", "Aluguel", "AL-08", 3200.0,
+               "Pago" if pago_aluguel else "Em aberto", datetime.date(2026, 8, 5) if pago_aluguel else None,
+               3200.0 if pago_aluguel else None])
+    ws.append([datetime.date(2026, 8, 10), "Excentrix Máquinas", "NF 5521 parcela 1/3", "Fornecedores", "5521-1",
+               12000.0, "Pago", datetime.date(2026, 8, 11), 12000.0])
+    ws.append([datetime.date(2099, 1, 10), "Excentrix Máquinas", "NF 5521 parcela 3/3", "Fornecedores", "5521-3",
+               12000.0, "Em aberto", None, None])
+    ws.append([datetime.date(2026, 8, 20), "Contabilidade Silva", "Honorários", "Serviços contábeis", "CT-08",
+               950.0, "Cancelado", None, None])
+    wb.save(caminho)
+
+
+def test_html_contas_a_pagar(tmp_path):
+    _xlsx_contas(tmp_path / "contas.xlsx")
+    ofx = OFX.replace("<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20260807<TRNAMT>-800.00<FITID>A5<MEMO>DARF SIMPLES",
+                      "<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20260812<TRNAMT>-12000.00<FITID>A6<MEMO>PIX ENVIADO EXCENTRIX")
+    (tmp_path / "banco.ofx").write_text(ofx, encoding="latin-1")
+    chromium = glob.glob("/opt/pw-browsers/chromium*/chrome-linux*/chrome")
+    with sync_api.sync_playwright() as p:
+        browser = p.chromium.launch(executable_path=chromium[0] if chromium else None)
+        page = browser.new_page()
+        erros = []
+        page.on("pageerror", lambda e: erros.append(str(e)))
+        page.on("dialog", lambda d: d.accept(d.default_value) if d.type == "prompt" else d.accept())
+        page.goto("file://" + HTML)
+        page.wait_for_function("window.document.querySelector('#month').options.length>0")
+        page.click("text=Financeiro / Extrato")
+        page.set_input_files("#bkFiles", str(tmp_path / "banco.ofx"))
+        page.click("#bkImport")
+        page.wait_for_function("document.querySelector('#bkResult').innerText.includes('banco.ofx')")
+
+        page.click("text=Contas a Pagar")
+        page.set_input_files("#apFiles", str(tmp_path / "contas.xlsx"))
+        page.click("#apImport")
+        page.wait_for_function("document.querySelector('#apResult').innerText.includes('contas.xlsx')")
+        res = page.inner_text("#apResult")
+        assert "4 contas lidas" in res and "4 novas" in res, res
+        page.select_option("#month", "2026-08")
+        assert _valor(page, "#apAberto") == pytest.approx(15200)
+        assert _valor(page, "#apVenc") == pytest.approx(3200)   # aluguel vencido em 05/08/2026
+        assert _valor(page, "#apPagas") == pytest.approx(12000)
+        assert "Aluguel" in page.inner_text("#apProj") or "Vencidas" in page.inner_text("#apProj")
+
+        # conta paga encontrada no extrato
+        page.select_option("#apSit", "pago")
+        assert "Sim" in page.inner_text("#cpgBody")
+        # regra padrão classifica aluguel como despesa fixa
+        cats = page.evaluate("Object.fromEntries(Object.values(db.ap).map(a=>[a.desc,a.cat]))")
+        assert cats["Aluguel agosto"] == "Despesas fixas"
+
+        # reimportar com o aluguel pago atualiza, não duplica
+        _xlsx_contas(tmp_path / "contas.xlsx", pago_aluguel=True)
+        page.set_input_files("#apFiles", str(tmp_path / "contas.xlsx"))
+        page.click("#apImport")
+        page.wait_for_function("document.querySelector('#apResult').innerText.includes('atualizadas')")
+        assert "0 novas" in page.inner_text("#apResult") and "4 atualizadas" in page.inner_text("#apResult")
+        assert _valor(page, "#apAberto") == pytest.approx(12000)
+
+        # fonte da DRE: contas a pagar (competência) x extrato
+        page.click("text=DRE Mensal")
+        fixas = "(()=>{let t=window._dre;let i=t.linhas.findIndex(l=>l[0]==='(−) Despesas fixas');return t.linhas[i][1][t.ms.indexOf('2026-08')]})()"
+        assert page.evaluate(fixas) == pytest.approx(-389.77)          # ENEL do extrato
+        page.click("text=Contas a Pagar")
+        page.select_option("#fonteDre", "ap")
+        page.click("text=DRE Mensal")
+        assert page.evaluate(fixas) == pytest.approx(-3200)            # aluguel do contas a pagar
+        assert erros == []
+        browser.close()
+
+
+def test_html_ids_unicos():
+    import re
+    ids = re.findall(r'id="([^"]+)"', open(HTML, encoding="utf-8").read())
+    assert sorted({i for i in ids if ids.count(i) > 1}) == []

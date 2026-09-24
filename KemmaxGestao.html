@@ -31,7 +31,7 @@ td.n,th.n{text-align:right}tr.tot td{font-weight:700;background:#f8fafc}.link.de
 <button data-p="prod">Produtos e Custos</button><button data-p="rent">Rentabilidade por Produto</button>
 <button data-p="channels">Canais e Tarifas</button><button data-p="cte">CT-e e Créditos</button>
 <button data-p="vendas">NF de Venda</button><button data-p="compras">NF de Compra</button><button data-p="apur">Apuração Impostos</button>
-<button data-p="dre">DRE Mensal</button><button data-p="finance">Financeiro / Extrato</button>
+<button data-p="dre">DRE Mensal</button><button data-p="finance">Financeiro / Extrato</button><button data-p="ap">Contas a Pagar</button>
 <button data-p="audit">Auditoria</button><button data-p="config">Configuração e Backup</button>
 </nav></aside>
 <main>
@@ -152,6 +152,20 @@ td.n,th.n{text-align:right}tr.tot td{font-weight:700;background:#f8fafc}.link.de
 <div class="actions"><label>Competência<input type="month" id="expMonth"></label><label>Categoria<select id="expCat"><option>ADS / Publicidade</option><option>Pessoal e pró-labore</option><option>Despesas fixas</option><option>Serviços</option><option>Outras despesas</option><option>Receitas financeiras</option><option>Despesas financeiras</option></select></label><label>Descrição<input id="expDesc"></label><label>Valor R$<input type="number" step=".01" id="expVal"></label><button class="primary" id="addExp">Adicionar</button></div>
 <table style="margin-top:10px"><thead><tr><th>Competência</th><th>Categoria</th><th>Descrição</th><th class="n">Valor</th><th></th></tr></thead><tbody id="expBody"></tbody></table></div></section>
 
+<section class="page" id="ap"><div class="card"><h2>Contas a Pagar</h2>
+<p>Importe o relatório de contas a pagar do seu sistema (CSV ou Excel .xlsx). As colunas são reconhecidas pelo nome: vencimento, fornecedor, descrição, categoria, valor, situação, data de pagamento, documento, emissão/competência. Importar de novo <b>atualiza</b> as contas (ex.: de aberta para paga) sem duplicar.</p>
+<div class="actions"><label>Relatório (.csv, .xlsx)<input type="file" id="apFiles" multiple accept=".csv,.txt,.xlsx"></label><button class="primary" id="apImport">Importar contas a pagar</button>
+<label>Despesas da DRE vêm de<select id="fonteDre"><option value="extrato">Extrato bancário (regime de caixa)</option><option value="ap">Contas a pagar (competência)</option></select></label></div>
+<p class="mut">Escolha uma fonte só para as despesas da DRE: se a conta paga também aparece no extrato, somar os dois contaria a despesa duas vezes. Os lançamentos manuais entram sempre.</p>
+<div id="apResult" style="margin-top:10px"></div></div>
+<div class="grid"><div class="card kpi"><span>Total em aberto</span><b id="apAberto">R$ 0,00</b></div><div class="card kpi"><span>Vencidas</span><b id="apVenc">R$ 0,00</b></div><div class="card kpi"><span>A vencer em 30 dias</span><b id="ap30">R$ 0,00</b></div><div class="card kpi"><span>Pagas na competência</span><b id="apPagas">R$ 0,00</b></div></div>
+<div class="card"><h3>Projeção de pagamentos (em aberto, por mês de vencimento)</h3><table><thead><tr><th>Vencimento</th><th class="n">Contas</th><th class="n">Valor</th><th class="n">Entra na DRE</th><th class="n">Fornecedores / estoque e outros</th></tr></thead><tbody id="apProj"></tbody></table></div>
+<div class="card"><h3>Contas</h3>
+<div class="actions" style="margin-bottom:10px"><label>Situação<select id="apSit"><option value="aberto">Em aberto</option><option value="vencido">Vencidas</option><option value="pago">Pagas</option><option value="cancelado">Canceladas</option><option value="">Todas</option></select></label>
+<label>Período<select id="apPer"><option value="">Todos os vencimentos</option><option value="m">Vencimento na competência</option></select></label><label>Buscar<input id="apBusca" placeholder="Fornecedor, descrição, documento"></label>
+<button class="btn gray" id="cpgCsv">Exportar CSV</button><button class="btn red" onclick="excluirApListado()">Excluir contas listadas</button></div>
+<div class="scroll"><table><thead><tr><th>Vencimento</th><th>Fornecedor</th><th>Descrição</th><th>Categoria no relatório</th><th>Documento</th><th class="n">Valor</th><th>Situação</th><th>Pago em</th><th>No extrato?</th><th>Categoria</th><th></th></tr></thead><tbody id="cpgBody"></tbody></table></div></div></section>
+
 <section class="page" id="audit"><div class="card"><h2>Auditoria e Fechamento</h2><div id="auditText"></div><button class="primary" id="closeMonth">Fechar competência selecionada</button> <button class="btn gray" id="openMonth">Reabrir competência</button>
 <p class="mut">Competência fechada não recebe novos documentos na importação.</p></div></section>
 
@@ -191,9 +205,9 @@ let db=null, idb=null, saveTimer=null, versao=0, cache=null;
 const NCM_PADRAO=['8441.10.90','8440.10.90','8439.30.90','8420.10.10'].map(ncm=>({ncm,carga:8.8,cargaNNE:5.14}));
 const PARSER=2;
 const CNPJ_KEMMAX='48221981000123';
-function novoDb(){return {config:{cnpjs:[CNPJ_KEMMAX],cteBase:'integral',pis:1.65,cofins:7.6,exDeb:true,exCred:true,ipi:true,st:false,ncmReducao:NCM_PADRAO.map(x=>({...x}))},
+function novoDb(){return {config:{cnpjs:[CNPJ_KEMMAX],cteBase:'integral',fonteDre:'extrato',pis:1.65,cofins:7.6,exDeb:true,exCred:true,ipi:true,st:false,ncmReducao:NCM_PADRAO.map(x=>({...x}))},
  docs:{},canceled:{},products:[],channels:[],channelMap:CANAIS_PADRAO.map(([name,cnpj])=>({name,cnpj})),
- cteOverride:{},trash:{},bank:{},bankRules:null,imports:[],expenses:[],extras:[],closed:[],saldos:{icms:0,pis:0,cofins:0}}}
+ cteOverride:{},trash:{},bank:{},bankRules:null,ap:{},imports:[],expenses:[],extras:[],closed:[],saldos:{icms:0,pis:0,cofins:0}}}
 
 // ------------------------------------------------------------------ IndexedDB
 function openDB(){return new Promise((res,rej)=>{let r=indexedDB.open('KemmaxGestaoLucroReal',4);
@@ -509,24 +523,64 @@ function dividirCsv(linha,sep){let r=[],cur='',q=false;for(let i=0;i<linha.lengt
   if(c==='"'){if(q&&linha[i+1]==='"'){cur+='"';i++}else q=!q}else if(c===sep&&!q){r.push(cur);cur=''}else cur+=c}
  r.push(cur);return r.map(x=>x.trim())}
 function lerCsv(txt,arquivo){
- let linhas=txt.split(/\r?\n/).filter(l=>l.trim()),amostra=linhas.slice(0,15).join('\n');
- let sep=[';','\t',','].map(c=>[c,(amostra.match(new RegExp(c==='\t'?'\t':'\\'+c,'g'))||[]).length]).sort((a,b)=>b[1]-a[1])[0][0];
+ let rows=linhasCsv(txt);
  let norm=h=>semAcento(h).toLowerCase(),hi=-1,cab=[];
- for(let i=0;i<Math.min(linhas.length,30);i++){let c=dividirCsv(linhas[i],sep).map(norm);
+ for(let i=0;i<Math.min(rows.length,30);i++){let c=rows[i].map(norm);
   if(c.some(x=>/^data|^dt\b/.test(x))&&c.some(x=>/valor|debito|credito|saida|entrada|montante/.test(x))){hi=i;cab=c;break}}
  if(hi<0)throw new Error('não encontrei o cabeçalho com Data e Valor/Débito/Crédito');
  let ix=re=>cab.findIndex(x=>re.test(x)),iD=ix(/^data|^dt\b/),iDesc=ix(/hist|descr|lancamento|memo|detalhe|estabelecimento|favorecido/),
   iVal=cab.findIndex(x=>/^valor|montante|quantia/.test(x)&&!/saldo/.test(x)),iDeb=ix(/debito|saida/),iCred=ix(/credito|entrada/),iDoc=ix(/documento|^doc|n.? doc/);
  let out=[],vistos={};
- for(let l of linhas.slice(hi+1)){let c=dividirCsv(l,sep),dt=dataBr(c[iD]),desc=iDesc>=0?c[iDesc]:'';
+ for(let c of rows.slice(hi+1)){let dt=dataBr(c[iD]),desc=iDesc>=0?c[iDesc]:'';
   if(!dt||/saldo/i.test(semAcento(desc)))continue;
   let valor=iVal>=0?valorBr(c[iVal]):(valorBr(c[iCred])||0)-Math.abs(valorBr(c[iDeb])||0);
   if(!isFinite(valor)||valor===0)continue;
   let base=[arquivo.replace(/\.[^.]*$/,''),dt,valor.toFixed(2),desc,iDoc>=0?c[iDoc]:''].join('|');vistos[base]=(vistos[base]||0)+1;
   out.push({id:'csv|'+base+'|'+vistos[base],dt,desc,valor,conta:arquivo})}
  return out}
+function linhasCsv(txt){let linhas=txt.split(/\r?\n/).filter(l=>l.trim()),amostra=linhas.slice(0,15).join('\n');
+ let sep=[';','\t',','].map(c=>[c,(amostra.match(new RegExp(c==='\t'?'\t':'\\'+c,'g'))||[]).length]).sort((a,b)=>b[1]-a[1])[0][0];
+ return linhas.map(l=>dividirCsv(l,sep))}
+async function linhasXlsx(bytes){
+ let arq={};await lerZip(bytes,'',async(nome,dado)=>{arq[nome]=new TextDecoder('utf-8').decode(dado)},null);
+ let parse=t=>new DOMParser().parseFromString(t||'<x/>','application/xml');
+ let ss=[...parse(arq['xl/sharedStrings.xml']).getElementsByTagNameNS('*','si')].map(si=>[...si.getElementsByTagNameNS('*','t')].map(t=>t.textContent).join(''));
+ let nomePlan=Object.keys(arq).filter(n=>/^xl\/worksheets\/sheet\d+\.xml$/.test(n)).sort((a,b)=>parseInt(a.match(/\d+/))-parseInt(b.match(/\d+/)))[0];
+ if(!nomePlan)throw new Error('planilha não encontrada no .xlsx');
+ let col=r=>{let l=r.replace(/\d+/g,''),n=0;for(let ch of l)n=n*26+ch.charCodeAt(0)-64;return n-1};
+ return [...parse(arq[nomePlan]).getElementsByTagNameNS('*','row')].map(row=>{let out=[];
+  for(let c of row.getElementsByTagNameNS('*','c')){let t=c.getAttribute('t'),v=c.getElementsByTagNameNS('*','v')[0],val;
+   if(t==='s')val=ss[+(v&&v.textContent)]??'';else if(t==='inlineStr')val=[...c.getElementsByTagNameNS('*','t')].map(x=>x.textContent).join('');else val=v?v.textContent:'';
+   out[col(c.getAttribute('r')||'A1')]=val}
+  return [...out].map(x=>x??'')})}
+function dataPlanilha(v){v=String(v??'').trim();if(/^\d{5}(\.\d+)?$/.test(v)){let d=new Date(Date.UTC(1899,11,30)+Math.floor(+v)*864e5);return d.toISOString().slice(0,10)}return dataBr(v)}
+function valorPlanilha(v){v=String(v??'').trim();return /^-?\d+(\.\d+)?(e-?\d+)?$/i.test(v)?parseFloat(v):valorBr(v)}
+function lerContasPagar(rows,arquivo){
+ let norm=h=>semAcento(h).toLowerCase().trim(),hi=-1,cab=[];
+ for(let i=0;i<Math.min(rows.length,40);i++){let c=rows[i].map(norm);if(c.some(x=>/venc/.test(x))&&c.some(x=>/valor|total/.test(x))){hi=i;cab=c;break}}
+ if(hi<0)throw new Error('não encontrei o cabeçalho com Vencimento e Valor. Primeiras linhas: '+rows.slice(0,3).map(r=>r.join(' | ')).join(' / '));
+ let ix=(re,nao)=>cab.findIndex(x=>re.test(x)&&!(nao&&nao.test(x)));
+ let c={venc:ix(/venc/),forn:ix(/fornec|contato|favorecido|credor|razao|^nome|beneficiario/),desc:ix(/hist|descr|observ|referente/),cat:ix(/categ|plano de conta|conta contabil|classific/),
+  valor:ix(/valor|total/,/pago|liquid|baixad|saldo|juros|multa|desc|acresc|aberto/),pago:ix(/valor (pago|liquidado|baixado)/),dpag:ix(/(data|dt).*(pag|liquid|baixa|quita)|^pago em|^pagamento$/),
+  sit:ix(/situa|status/),doc:ix(/documento|n.? ?doc|numero|^nf|nota/),emis:ix(/compet|emiss/),parc:ix(/parcela/)};
+ let g=(r,k)=>c[k]>=0?String(r[c[k]]??'').trim():'',out=[],vistos={};
+ for(let r of rows.slice(hi+1)){let venc=dataPlanilha(g(r,'venc')),valor=Math.abs(valorPlanilha(g(r,'valor')));if(!venc||!isFinite(valor)||!valor)continue;
+  let sit=norm(g(r,'sit')),dpag=dataPlanilha(g(r,'dpag')),vpago=Math.abs(valorPlanilha(g(r,'pago')))||0;
+  let status=/cancel|excluid|estorn/.test(sit)?'cancelado':(/pag|liquid|quitad|baixad/.test(sit)&&!/nao pag|a pagar|parcial/.test(sit))||(!sit&&dpag)?'pago':'aberto';
+  let base=[g(r,'forn'),g(r,'doc'),venc,valor.toFixed(2),g(r,'parc'),g(r,'desc')].join('|');vistos[base]=(vistos[base]||0)+1;
+  out.push({id:'ap|'+base+'|'+vistos[base],venc,forn:g(r,'forn'),desc:g(r,'desc'),catRel:g(r,'cat'),doc:g(r,'doc'),valor,status,dpag,vpago:vpago||(status==='pago'?valor:0),
+   comp:dataPlanilha(g(r,'emis'))||venc,arquivo})}
+ return out}
+const hoje=()=>new Date().toISOString().slice(0,10);
+const situacaoAp=a=>a.status==='aberto'&&a.venc<hoje()?'vencido':a.status;
+function conciliarAp(){ // conta paga x débito do extrato: mesmo valor e data até 5 dias de diferença
+ let usados=new Set(),deb=Object.values(db.bank).filter(t=>t.valor<0);
+ for(let a of Object.values(db.ap)){a.extrato='';if(a.status!=='pago')continue;let ref=a.dpag||a.venc,alvo=a.vpago||a.valor;
+  let t=deb.find(t=>!usados.has(t.id)&&Math.abs(-t.valor-alvo)<0.01&&Math.abs((new Date(t.dt)-new Date(ref))/864e5)<=5);
+  if(t){usados.add(t.id);a.extrato=t.dt+' • '+t.desc}}}
 function despesasMes(m){let e={};db.expenses.filter(x=>x.month===m).forEach(x=>e[x.cat]=(e[x.cat]||0)+(+x.value||0));
- for(let tx of Object.values(db.bank||{}))if(tx.dt.startsWith(m)&&CAT_DRE.includes(tx.cat))e[tx.cat]=(e[tx.cat]||0)+(tx.cat==='Receitas financeiras'?tx.valor:-tx.valor);
+ if((db.config.fonteDre||'extrato')==='extrato'){for(let tx of Object.values(db.bank||{}))if(tx.dt.startsWith(m)&&CAT_DRE.includes(tx.cat))e[tx.cat]=(e[tx.cat]||0)+(tx.cat==='Receitas financeiras'?tx.valor:-tx.valor)}
+ else for(let a of Object.values(db.ap||{}))if(a.status!=='cancelado'&&a.comp.startsWith(m)&&CAT_DRE.includes(a.cat))e[a.cat]=(e[a.cat]||0)+(a.cat==='Receitas financeiras'?-a.valor:a.valor);
  return e}
 function extrasMes(m){let x=db.extras.filter(e=>e.month===m);return {pis:soma(x,'pis'),cof:soma(x,'cof'),icms:soma(x,'icms')}}
 function dreMes(m){
@@ -568,7 +622,7 @@ function linhasDre(ate){
   ['= Resultado antes IRPJ/CSLL',g(d=>d.lair)],['(−) CSLL 9%',g(d=>-d.csll)],['(−) IRPJ 15% + adicional 10%',g(d=>-d.irpj)],['= Lucro líquido (DRE)',g(d=>d.liq)],
   ['(−) Pago adicional (CMV Financeiro − CMV DRE)',g(d=>-d.adic)],['= Resultado financeiro (caixa)',g(d=>d.caixa)]]}}
 
-function mesesDisponiveis(){let a=new Set();Object.values(db.docs).forEach(d=>d.dt&&a.add(d.dt.slice(0,7)));Object.values(db.bank||{}).forEach(t=>a.add(t.dt.slice(0,7)));
+function mesesDisponiveis(){let a=new Set();Object.values(db.docs).forEach(d=>d.dt&&a.add(d.dt.slice(0,7)));Object.values(db.bank||{}).forEach(t=>a.add(t.dt.slice(0,7)));Object.values(db.ap||{}).forEach(x=>a.add(x.venc.slice(0,7)));
  let hoje=new Date(),y=hoje.getFullYear();for(let i=1;i<=hoje.getMonth()+1;i++)a.add(`${y}-${String(i).padStart(2,'0')}`);return [...a].sort()}
 function initMonths(){let sel=$('#month'),cur=sel.dataset.want||sel.value,ms=mesesDisponiveis();delete sel.dataset.want;
  sel.innerHTML=ms.map(m=>`<option value="${m}">${rotulo(m)}</option>`).join('');sel.value=ms.includes(cur)?cur:(ms.at(-1)||'')}
@@ -730,6 +784,30 @@ window.regraDoLancamento=i=>{let t=(window._fRows||[])[i];if(!t)return;if(!t.cat
  let txt=prompt('Classificar como "'+t.cat+'" todo lançamento cuja descrição contenha:',sugestao);if(!txt)return;
  db.bankRules.unshift({txt:txt.trim(),cat:t.cat,sinal:t.valor<0?'D':'C'});let n=aplicarRegras(false);changed();alert('Regra criada. '+n+' lançamento(s) sem categoria foram classificados.')};
 window.delRegra=i=>{db.bankRules.splice(i,1);changed()};
+function renderAp(m){
+ conciliarAp();let A=Object.values(db.ap),hj=hoje(),em30=new Date(Date.now()+30*864e5).toISOString().slice(0,10);
+ let ab=A.filter(a=>a.status==='aberto');
+ $('#fonteDre').value=db.config.fonteDre||'extrato';
+ $('#apAberto').textContent=brl(soma(ab,'valor'));$('#apVenc').textContent=brl(soma(ab.filter(a=>a.venc<hj),'valor'));$('#apVenc').className=ab.some(a=>a.venc<hj)?'bad':'ok';
+ $('#ap30').textContent=brl(soma(ab.filter(a=>a.venc>=hj&&a.venc<=em30),'valor'));$('#apPagas').textContent=brl(soma(A.filter(a=>a.status==='pago'&&(a.dpag||a.venc).startsWith(m)),a=>a.vpago||a.valor));
+ let proj={};ab.forEach(a=>{let k=a.venc<hj?'Vencidas':a.venc.slice(0,7),p=proj[k]=proj[k]||{n:0,v:0,dre:0};p.n++;p.v+=a.valor;if(CAT_DRE.includes(a.cat))p.dre+=a.valor});
+ $('#apProj').innerHTML=Object.keys(proj).sort((a,b)=>a==='Vencidas'?-1:b==='Vencidas'?1:a.localeCompare(b)).map(k=>`<tr><td>${k==='Vencidas'?'<span class="bad">Vencidas</span>':rotulo(k)}</td><td class="n">${proj[k].n}</td><td class="n"><b>${brl(proj[k].v)}</b></td><td class="n">${brl(proj[k].dre)}</td><td class="n">${brl(proj[k].v-proj[k].dre)}</td></tr>`).join('')||'<tr><td colspan="5" class="mut">Nenhuma conta em aberto.</td></tr>';
+ let sit=$('#apSit').value,per=$('#apPer').value,termo=semAcento($('#apBusca').value.trim());
+ let L=A.filter(a=>(!sit||situacaoAp(a)===sit||(sit==='aberto'&&situacaoAp(a)==='vencido'))&&(!per||a.venc.startsWith(m))&&(!termo||semAcento([a.forn,a.desc,a.doc,a.catRel].join(' ')).includes(termo))).sort((a,b)=>a.venc.localeCompare(b.venc));
+ window._apRows=L;
+ let rot={aberto:'Em aberto',vencido:'<span class="bad">Vencida</span>',pago:'<span class="ok">Paga</span>',cancelado:'<span class="mut">Cancelada</span>'};
+ $('#cpgBody').innerHTML=L.slice(0,800).map((a,i)=>`<tr><td>${esc(a.venc)}</td><td>${esc(a.forn)}</td><td style="white-space:normal;min-width:200px">${esc(a.desc)}</td><td class="mut">${esc(a.catRel)}</td><td>${esc(a.doc)}</td><td class="n"><b>${brl(a.valor)}</b></td><td>${rot[situacaoAp(a)]}</td><td>${esc(a.dpag)}</td><td>${a.status!=='pago'?'—':a.extrato?`<span class="ok" title="${esc(a.extrato)}">Sim</span>`:'<span class="warn">Não</span>'}</td><td><select onchange="setCatAp(${i},this.value)">${opcoesCat(a.cat)}</select></td><td><button class="link" onclick="regraAp(${i})">criar regra</button> <button class="link del" onclick="excluirAp(${i})">excluir</button></td></tr>`).join('')+
+  (L.length>800?`<tr><td colspan="11" class="mut">Mostrando 800 de ${L.length}.</td></tr>`:'')+(!L.length?'<tr><td colspan="11" class="mut">Nenhuma conta com esse filtro.</td></tr>':'')+
+  (L.length?`<tr class="tot"><td colspan="5">Total (${L.length} contas)</td><td class="n">${brl(soma(L,'valor'))}</td><td colspan="5"></td></tr>`:'')}
+const textoAp=a=>[a.forn,a.desc,a.catRel].join(' ');
+window.setCatAp=(i,c)=>{let a=(window._apRows||[])[i];if(!a)return;a.cat=c;a.origem=c?'manual':'';changed()};
+window.excluirAp=i=>{let a=(window._apRows||[])[i];if(a&&confirm('Excluir esta conta?')){delete db.ap[a.id];changed()}};
+window.excluirApListado=()=>{let L=window._apRows||[];if(!L.length)return;if(!confirm(`Excluir ${L.length} conta(s) listadas?`))return;L.forEach(a=>delete db.ap[a.id]);changed()};
+window.regraAp=i=>{let a=(window._apRows||[])[i];if(!a)return;if(!a.cat)return alert('Escolha primeiro a categoria desta conta; a regra usa essa categoria.');
+ let txt=prompt('Classificar como "'+a.cat+'" toda conta/lançamento cujo fornecedor ou descrição contenha:',semAcento(a.forn||a.desc).split(' ').slice(0,3).join(' '));if(!txt)return;
+ db.bankRules.unshift({txt:txt.trim(),cat:a.cat,sinal:''});aplicarRegras(false);aplicarRegrasAp(false);changed()};
+function aplicarRegrasAp(todos){let n=0;for(let a of Object.values(db.ap)){if(a.origem==='manual')continue;if(!todos&&a.cat)continue;
+ let c=regraExtrato({desc:textoAp(a),valor:-a.valor});if(c!==a.cat){a.cat=c;a.origem=c?'regra':'';n++}}return n}
 function renderExp(){$('#expBody').innerHTML=db.expenses.slice().sort((a,b)=>a.month.localeCompare(b.month)).map(e=>`<tr><td>${rotulo(e.month)}</td><td>${esc(e.cat)}</td><td>${esc(e.desc)}</td><td class="n">${brl(e.value)}</td><td><button class="link" onclick="delExp(${db.expenses.indexOf(e)})">Excluir</button></td></tr>`).join('')||'<tr><td colspan="5" class="mut">Nenhuma despesa lançada.</td></tr>'}
 function quadroReducao(L){
  let R=L.filter(x=>x.t==='NF-e'&&x.icmsNota!==undefined&&reduzido(x)&&(COMPRAS.includes(x.nat)||x.nat==='Venda'));
@@ -773,7 +851,7 @@ function render(){
  let pg=($('#nav button.active')||{}).dataset?.p||'dash';
  renderDash(m);
  ({import:renderImports,prod:renderProducts,rent:()=>renderRent(m),channels:renderChannels,cte:()=>renderCte(m),vendas:()=>renderVendas(m),compras:()=>renderCompras(m),
-   apur:()=>renderApur(m),dre:()=>renderDre(m),finance:()=>renderFin(m),audit:()=>renderAudit(m),config:renderConfig}[pg]||(()=>{}))();
+   apur:()=>renderApur(m),dre:()=>renderDre(m),finance:()=>renderFin(m),ap:()=>renderAp(m),audit:()=>renderAudit(m),config:renderConfig}[pg]||(()=>{}))();
 }
 
 // ------------------------------------------------------------------ ações
@@ -834,10 +912,24 @@ $('#bkImport').onclick=async()=>{let fs=[...$('#bkFiles').files];if(!fs.length)r
   catch(e){$('#bkResult').insertAdjacentHTML('beforeend',`<div class="note red"><b>${esc(f.name)}</b>: ${esc(e.message)}</div>`)}}
  if(mesMax)$('#month').dataset.want=mesMax;changed()};
 $('#rgAdd').onclick=()=>{let txt=$('#rgTxt').value.trim();if(!txt)return alert('Informe o texto.');db.bankRules.unshift({txt,cat:$('#rgCat').value,sinal:$('#rgSinal').value});$('#rgTxt').value='';
- let n=aplicarRegras(false);changed();alert('Regra adicionada. '+n+' lançamento(s) sem categoria foram classificados.')};
-$('#rgAplicar').onclick=()=>{let n=aplicarRegras(true);changed();alert(n+' lançamento(s) reclassificados (os classificados à mão não mudam).')};
+ let n=aplicarRegras(false)+aplicarRegrasAp(false);changed();alert('Regra adicionada. '+n+' lançamento(s) sem categoria foram classificados.')};
+$('#rgAplicar').onclick=()=>{let n=aplicarRegras(true)+aplicarRegrasAp(true);changed();alert(n+' lançamento(s) reclassificados (os classificados à mão não mudam).')};
 $('#fFiltro').onchange=render;$('#fBusca').oninput=render;
 $('#fCsv').onclick=()=>csv('extrato_'+$('#month').value+'.csv',['Data','Descrição','Conta','Valor','Categoria','Entra na DRE'],(window._fRows||[]).map(t=>[t.dt,t.desc,t.conta,t.valor,t.cat,CAT_DRE.includes(t.cat)?'Sim':'Não']));
+$('#apImport').onclick=async()=>{let fs=[...$('#apFiles').files];if(!fs.length)return alert('Selecione o relatório de contas a pagar (.csv ou .xlsx).');
+ $('#apResult').innerHTML='';
+ for(let f of fs){try{let bytes=new Uint8Array(await f.arrayBuffer()),rows;
+   if(/\.xlsx$/i.test(f.name))rows=await linhasXlsx(bytes);else{let txt=new TextDecoder('utf-8').decode(bytes);if(txt.includes('\uFFFD'))txt=new TextDecoder('latin1').decode(bytes);rows=linhasCsv(txt)}
+   let L=lerContasPagar(rows,f.name),novos=0,atu=0;
+   for(let a of L){let old=db.ap[a.id];if(old){Object.assign(old,{status:a.status,dpag:a.dpag,vpago:a.vpago,catRel:a.catRel,comp:a.comp});atu++}else{a.cat='';a.origem='';db.ap[a.id]=a;novos++}}
+   aplicarRegrasAp(false);
+   $('#apResult').insertAdjacentHTML('beforeend',`<div class="note" style="margin-bottom:6px"><b>${esc(f.name)}</b>: ${L.length} contas lidas • <b>${novos} novas</b> • ${atu} atualizadas • ${L.filter(a=>a.status==='aberto').length} em aberto • ${L.filter(a=>a.status==='pago').length} pagas</div>`)}
+  catch(e){$('#apResult').insertAdjacentHTML('beforeend',`<div class="note red"><b>${esc(f.name)}</b>: ${esc(e.message)}</div>`)}}
+ changed()};
+$('#fonteDre').onchange=()=>{db.config.fonteDre=$('#fonteDre').value;changed()};
+['#apSit','#apPer'].forEach(x=>$(x).onchange=render);$('#apBusca').oninput=render;
+$('#cpgCsv').onclick=()=>csv('contas_a_pagar.csv',['Vencimento','Fornecedor','Descrição','Categoria no relatório','Documento','Valor','Situação','Pago em','Valor pago','No extrato','Categoria','Entra na DRE'],
+ (window._apRows||[]).map(a=>[a.venc,a.forn,a.desc,a.catRel,a.doc,a.valor,situacaoAp(a),a.dpag,a.vpago,a.extrato?'Sim':'Não',a.cat,CAT_DRE.includes(a.cat)?'Sim':'Não']));
 $('#closeMonth').onclick=()=>{let m=$('#month').value;if(!db.closed.includes(m))db.closed.push(m);changed()};
 $('#openMonth').onclick=()=>{db.closed=db.closed.filter(x=>x!==$('#month').value);changed()};
 $('#month').onchange=()=>{let m=$('#month').value;$('#expMonth').value=$('#exMonth').value=m;render()};
