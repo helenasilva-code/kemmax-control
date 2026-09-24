@@ -31,7 +31,7 @@ td.n,th.n{text-align:right}tr.tot td{font-weight:700;background:#f8fafc}.link.de
 <button data-p="prod">Produtos e Custos</button><button data-p="rent">Rentabilidade por Produto</button>
 <button data-p="channels">Canais e Tarifas</button><button data-p="cte">CT-e e Créditos</button>
 <button data-p="vendas">NF de Venda</button><button data-p="compras">NF de Compra</button><button data-p="apur">Apuração Impostos</button>
-<button data-p="dre">DRE Mensal</button><button data-p="finance">Financeiro / Despesas</button>
+<button data-p="dre">DRE Mensal</button><button data-p="finance">Financeiro / Extrato</button>
 <button data-p="audit">Auditoria</button><button data-p="config">Configuração e Backup</button>
 </nav></aside>
 <main>
@@ -136,9 +136,21 @@ td.n,th.n{text-align:right}tr.tot td{font-weight:700;background:#f8fafc}.link.de
 <div class="actions"><button class="btn gray" id="dreCsv">Exportar CSV</button></div></div>
 <div class="card"><div class="scroll" style="max-height:none"><table><thead id="dreHead"></thead><tbody id="dreBody"></tbody></table></div></div></section>
 
-<section class="page" id="finance"><div class="card"><h2>Financeiro / Despesas por competência</h2><p>Despesas que não vêm dos XMLs, para fechar a DRE. Empréstimo principal, compra de estoque e imobilizado não são despesa operacional.</p>
-<div class="actions"><label>Competência<input type="month" id="expMonth"></label><label>Categoria<select id="expCat"><option>ADS / Publicidade</option><option>Pessoal e pró-labore</option><option>Despesas fixas</option><option>Serviços</option><option>Outras despesas</option><option>Receitas financeiras</option><option>Despesas financeiras</option></select></label><label>Descrição<input id="expDesc"></label><label>Valor R$<input type="number" step=".01" id="expVal"></label><button class="primary" id="addExp">Adicionar</button></div></div>
-<div class="card"><table><thead><tr><th>Competência</th><th>Categoria</th><th>Descrição</th><th class="n">Valor</th><th></th></tr></thead><tbody id="expBody"></tbody></table></div></section>
+<section class="page" id="finance"><div class="card"><h2>Financeiro / Extrato bancário</h2>
+<p>Importe o extrato do banco em <b>OFX</b> (recomendado: todo banco exporta) ou <b>CSV</b>. Os lançamentos são classificados por regras e as despesas entram na DRE da competência. Recebimentos de vendas, pagamento de fornecedores de estoque, impostos, empréstimos e transferências <b>não entram na DRE</b> — receita, CMV e impostos já vêm das notas fiscais.</p>
+<div class="actions"><label>Extrato (.ofx, .csv)<input type="file" id="bkFiles" multiple accept=".ofx,.csv,.txt"></label><button class="primary" id="bkImport">Importar extrato</button></div>
+<div id="bkResult" style="margin-top:10px"></div></div>
+<div class="grid"><div class="card kpi"><span>Entradas no mês</span><b id="fEnt">R$ 0,00</b></div><div class="card kpi"><span>Saídas no mês</span><b id="fSai">R$ 0,00</b></div><div class="card kpi"><span>Saldo do mês (entradas − saídas)</span><b id="fSaldo">R$ 0,00</b></div><div class="card kpi"><span>Lançamentos sem categoria</span><b id="fSem">0</b></div></div>
+<div class="card"><h3>Resumo por categoria</h3><table><thead><tr><th>Categoria</th><th>Entra na DRE?</th><th class="n">Lançamentos</th><th class="n">Entradas</th><th class="n">Saídas</th><th class="n">Líquido</th></tr></thead><tbody id="fCat"></tbody></table></div>
+<div class="card"><h3>Lançamentos do extrato</h3>
+<div class="actions" style="margin-bottom:10px"><label>Mostrar<select id="fFiltro"><option value="">Todos</option><option value="__sem">Sem categoria</option><option value="__dre">Que entram na DRE</option><option value="__fora">Que não entram na DRE</option></select></label><label>Buscar<input id="fBusca" placeholder="Descrição ou valor"></label><button class="btn gray" id="fCsv">Exportar CSV</button><button class="btn red" onclick="excluirExtratoListado()">Excluir lançamentos listados</button></div>
+<div class="scroll"><table><thead><tr><th>Data</th><th>Descrição</th><th>Conta</th><th class="n">Valor</th><th>Categoria</th><th></th></tr></thead><tbody id="fBody"></tbody></table></div></div>
+<div class="card"><h3>Regras de classificação</h3><p class="mut">A primeira regra que combinar vale. Use | para alternativas (ex.: <i>ENEL|CPFL</i>). "Só débitos/créditos" limita a saídas ou entradas. Lançamentos classificados à mão não são alterados pelas regras.</p>
+<div class="actions"><label>Descrição contém<input id="rgTxt" placeholder="ex.: ENEL|CPFL"></label><label>Categoria<select id="rgCat"></select></label><label>Aplica a<select id="rgSinal"><option value="">Débitos e créditos</option><option value="D">Só débitos (saídas)</option><option value="C">Só créditos (entradas)</option></select></label><button class="primary" id="rgAdd">Adicionar regra</button><button class="btn gray" id="rgAplicar">Reaplicar regras</button></div>
+<div class="scroll" style="max-height:300px;margin-top:10px"><table><thead><tr><th>Descrição contém</th><th>Categoria</th><th>Aplica a</th><th></th></tr></thead><tbody id="rgBody"></tbody></table></div></div>
+<div class="card"><h3>Lançamentos manuais (sem extrato)</h3><p class="mut">Para despesas que não passam pelo banco (ex.: cartão de crédito sem extrato, provisões).</p>
+<div class="actions"><label>Competência<input type="month" id="expMonth"></label><label>Categoria<select id="expCat"><option>ADS / Publicidade</option><option>Pessoal e pró-labore</option><option>Despesas fixas</option><option>Serviços</option><option>Outras despesas</option><option>Receitas financeiras</option><option>Despesas financeiras</option></select></label><label>Descrição<input id="expDesc"></label><label>Valor R$<input type="number" step=".01" id="expVal"></label><button class="primary" id="addExp">Adicionar</button></div>
+<table style="margin-top:10px"><thead><tr><th>Competência</th><th>Categoria</th><th>Descrição</th><th class="n">Valor</th><th></th></tr></thead><tbody id="expBody"></tbody></table></div></section>
 
 <section class="page" id="audit"><div class="card"><h2>Auditoria e Fechamento</h2><div id="auditText"></div><button class="primary" id="closeMonth">Fechar competência selecionada</button> <button class="btn gray" id="openMonth">Reabrir competência</button>
 <p class="mut">Competência fechada não recebe novos documentos na importação.</p></div></section>
@@ -181,7 +193,7 @@ const PARSER=2;
 const CNPJ_KEMMAX='48221981000123';
 function novoDb(){return {config:{cnpjs:[CNPJ_KEMMAX],cteBase:'integral',pis:1.65,cofins:7.6,exDeb:true,exCred:true,ipi:true,st:false,ncmReducao:NCM_PADRAO.map(x=>({...x}))},
  docs:{},canceled:{},products:[],channels:[],channelMap:CANAIS_PADRAO.map(([name,cnpj])=>({name,cnpj})),
- cteOverride:{},trash:{},imports:[],expenses:[],extras:[],closed:[],saldos:{icms:0,pis:0,cofins:0}}}
+ cteOverride:{},trash:{},bank:{},bankRules:null,imports:[],expenses:[],extras:[],closed:[],saldos:{icms:0,pis:0,cofins:0}}}
 
 // ------------------------------------------------------------------ IndexedDB
 function openDB(){return new Promise((res,rej)=>{let r=indexedDB.open('KemmaxGestaoLucroReal',4);
@@ -192,7 +204,7 @@ const idbPut=(k,v)=>new Promise((res,rej)=>{let tx=idb.transaction('state','read
 async function saveNow(){clearTimeout(saveTimer);if(idb)await idbPut(K,db)}
 function changed(){versao++;cache=null;clearTimeout(saveTimer);saveTimer=setTimeout(saveNow,200);render()}
 async function loadDB(){await openDB();let x=await idbGet(K);db=Object.assign(novoDb(),x||{});
- db.config=Object.assign(novoDb().config,db.config||{});if(!Array.isArray(db.config.ncmReducao))db.config.ncmReducao=NCM_PADRAO.map(x=>({...x}));
+ db.config=Object.assign(novoDb().config,db.config||{});if(!Array.isArray(db.bankRules))db.bankRules=REGRAS_BANCO.map(([txt,cat,sinal])=>({txt,cat,sinal}));if(!Array.isArray(db.config.ncmReducao))db.config.ncmReducao=NCM_PADRAO.map(x=>({...x}));
  if(!x){ // traz cadastros da V3, se existirem
   try{let v3=await idbGet('kemmax_gestao_lr_v3');if(v3){db.products=(v3.products||[]).map(p=>calcProduto(p));
    db.channels=v3.channels||[];db.expenses=(v3.expenses||[]).filter(e=>e.cat);db.closed=v3.closed||[]}}catch(e){}
@@ -458,7 +470,64 @@ function derivar(){
 const soma=(arr,f)=>arr.reduce((a,x)=>a+(typeof f==='function'?f(x):(+x[f]||0)),0);
 function mesesAno(m){let [y,mm]=m.split('-');return Array.from({length:+mm},(_,i)=>`${y}-${String(i+1).padStart(2,'0')}`)}
 function rotulo(m){let [y,mm]=m.split('-');return MESES[+mm-1]+'/'+y.slice(2)}
-function despesasMes(m){let e={};db.expenses.filter(x=>x.month===m).forEach(x=>e[x.cat]=(e[x.cat]||0)+(+x.value||0));return e}
+const CAT_DRE=['ADS / Publicidade','Pessoal e pró-labore','Despesas fixas','Serviços','Outras despesas','Receitas financeiras','Despesas financeiras'];
+const CAT_FORA=['Recebimento de vendas / marketplace','Pagamento de fornecedor (estoque)','Impostos (apurados nas notas)','Empréstimo / financiamento','Transferência entre contas / aplicação','Retirada ou aporte de sócios','Imobilizado','Ignorar'];
+const REGRAS_BANCO=[
+ ['MERCADO PAGO|MERCADOPAGO|MERCADO LIVRE|MERCADOLIVRE|EBAZAR|SHOPEE|SHPS|AMAZON|MAGALU|MAGAZINE LUIZA|TIKTOK','Recebimento de vendas / marketplace','C'],
+ ['MERCADO ADS|GOOGLE ADS|GOOGLE *ADS|FACEBK|FACEBOOK|META ADS|META PLATFORMS|TIKTOK ADS','ADS / Publicidade','D'],
+ ['RENDIMENTO|REND PAGO|REND.APLIC|REMUNERACAO APLIC|JUROS S/ SALDO','Receitas financeiras','C'],
+ ['TARIFA|TAR |CESTA|PACOTE DE SERV|MANUT CONTA|MENSALIDADE PACOTE|IOF|JUROS|ENCARGO|MULTA|MORA','Despesas financeiras','D'],
+ ['DARF|DAS |GNRE|GARE|SEFAZ|ICMS|SIMPLES NACIONAL|RECEITA FEDERAL','Impostos (apurados nas notas)','D'],
+ ['FGTS|INSS|GPS |FOLHA|SALARIO|SALÁRIO|PRO LABORE|PRO-LABORE|PRÓ-LABORE|VALE TRANSPORTE|VALE REFEICAO|VALE ALIMENTACAO|BENEFICIO','Pessoal e pró-labore','D'],
+ ['ALUGUEL|CONDOMINIO|CONDOMÍNIO|ENEL|CPFL|ELEKTRO|LIGHT S|ENERGIA|SABESP|AGUA|VIVO|CLARO|TIM |OI |INTERNET|TELEFON|CONTABIL|CONTÁBIL|CONTABILIDADE|SOFTWARE|SISTEMA','Despesas fixas','D'],
+ ['EMPRESTIMO|EMPRÉSTIMO|FINANCIAMENTO|CAPITAL DE GIRO|PRONAMPE|GIRO FACIL','Empréstimo / financiamento',''],
+ ['APLICACAO|APLICAÇÃO|RESGATE|APLIC AUTOM|INVEST','Transferência entre contas / aplicação',''],
+];
+const semAcento=t=>String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+function regraExtrato(tx){let d=semAcento(tx.desc);
+ for(let r of db.bankRules||[]){if(r.sinal==='D'&&tx.valor>=0)continue;if(r.sinal==='C'&&tx.valor<0)continue;
+  if(semAcento(r.txt).split('|').map(x=>x.trim()).filter(Boolean).some(x=>d.includes(x)))return r.cat}
+ return ''}
+function aplicarRegras(todos){let n=0;for(let tx of Object.values(db.bank)){if(tx.origem==='manual')continue;if(!todos&&tx.cat)continue;
+ let c=regraExtrato(tx);if(c!==tx.cat){tx.cat=c;tx.origem=c?'regra':'';n++}}return n}
+function valorBr(v){v=String(v??'').replace(/R\$|\s/g,'');if(!v)return NaN;let neg=/^\(.*\)$/.test(v)||/^-/.test(v)||/-$/.test(v)||/D$/i.test(v);
+ v=v.replace(/[()\-+CD]/gi,'');let dec=Math.max(v.lastIndexOf(','),v.lastIndexOf('.'));
+ let n=dec>=0&&v.length-dec-1<=2?parseFloat(v.slice(0,dec).replace(/[.,]/g,'')+'.'+v.slice(dec+1)):parseFloat(v.replace(/[.,]/g,''));
+ return neg?-n:n}
+function dataBr(v){v=String(v||'').trim();let m=v.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/);
+ if(m){let y=m[3].length===2?'20'+m[3]:m[3];return `${y}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`}
+ m=v.match(/^(\d{4})-?(\d{2})-?(\d{2})/);return m?`${m[1]}-${m[2]}-${m[3]}`:''}
+function lerOfx(txt,arquivo){
+ let tag=(b,t)=>{let m=b.match(new RegExp('<'+t+'>([^<\\r\\n]*)','i'));return m?m[1].trim():''};
+ let conta=[tag(txt,'BANKID'),tag(txt,'ACCTID')].filter(Boolean).join(' / ')||arquivo,out=[];
+ for(let b of txt.split(/<STMTTRN>/i).slice(1)){b=b.split(/<\/STMTTRN>/i)[0];
+  let dt=dataBr(tag(b,'DTPOSTED').slice(0,8)),valor=parseFloat(tag(b,'TRNAMT').replace(',','.')),fit=tag(b,'FITID');
+  let desc=[tag(b,'NAME'),tag(b,'MEMO')].filter(Boolean).filter((x,i,a)=>a.indexOf(x)===i).join(' - ');
+  if(dt&&isFinite(valor)&&valor!==0)out.push({id:'ofx|'+conta+'|'+(fit||dt+'|'+valor+'|'+desc),dt,desc,valor,conta})}
+ return out}
+function dividirCsv(linha,sep){let r=[],cur='',q=false;for(let i=0;i<linha.length;i++){let c=linha[i];
+  if(c==='"'){if(q&&linha[i+1]==='"'){cur+='"';i++}else q=!q}else if(c===sep&&!q){r.push(cur);cur=''}else cur+=c}
+ r.push(cur);return r.map(x=>x.trim())}
+function lerCsv(txt,arquivo){
+ let linhas=txt.split(/\r?\n/).filter(l=>l.trim()),amostra=linhas.slice(0,15).join('\n');
+ let sep=[';','\t',','].map(c=>[c,(amostra.match(new RegExp(c==='\t'?'\t':'\\'+c,'g'))||[]).length]).sort((a,b)=>b[1]-a[1])[0][0];
+ let norm=h=>semAcento(h).toLowerCase(),hi=-1,cab=[];
+ for(let i=0;i<Math.min(linhas.length,30);i++){let c=dividirCsv(linhas[i],sep).map(norm);
+  if(c.some(x=>/^data|^dt\b/.test(x))&&c.some(x=>/valor|debito|credito|saida|entrada|montante/.test(x))){hi=i;cab=c;break}}
+ if(hi<0)throw new Error('não encontrei o cabeçalho com Data e Valor/Débito/Crédito');
+ let ix=re=>cab.findIndex(x=>re.test(x)),iD=ix(/^data|^dt\b/),iDesc=ix(/hist|descr|lancamento|memo|detalhe|estabelecimento|favorecido/),
+  iVal=cab.findIndex(x=>/^valor|montante|quantia/.test(x)&&!/saldo/.test(x)),iDeb=ix(/debito|saida/),iCred=ix(/credito|entrada/),iDoc=ix(/documento|^doc|n.? doc/);
+ let out=[],vistos={};
+ for(let l of linhas.slice(hi+1)){let c=dividirCsv(l,sep),dt=dataBr(c[iD]),desc=iDesc>=0?c[iDesc]:'';
+  if(!dt||/saldo/i.test(semAcento(desc)))continue;
+  let valor=iVal>=0?valorBr(c[iVal]):(valorBr(c[iCred])||0)-Math.abs(valorBr(c[iDeb])||0);
+  if(!isFinite(valor)||valor===0)continue;
+  let base=[arquivo.replace(/\.[^.]*$/,''),dt,valor.toFixed(2),desc,iDoc>=0?c[iDoc]:''].join('|');vistos[base]=(vistos[base]||0)+1;
+  out.push({id:'csv|'+base+'|'+vistos[base],dt,desc,valor,conta:arquivo})}
+ return out}
+function despesasMes(m){let e={};db.expenses.filter(x=>x.month===m).forEach(x=>e[x.cat]=(e[x.cat]||0)+(+x.value||0));
+ for(let tx of Object.values(db.bank||{}))if(tx.dt.startsWith(m)&&CAT_DRE.includes(tx.cat))e[tx.cat]=(e[tx.cat]||0)+(tx.cat==='Receitas financeiras'?tx.valor:-tx.valor);
+ return e}
 function extrasMes(m){let x=db.extras.filter(e=>e.month===m);return {pis:soma(x,'pis'),cof:soma(x,'cof'),icms:soma(x,'icms')}}
 function dreMes(m){
  let {lancs,vendas}=derivar(),L=lancs.filter(x=>x.m===m),V=vendas.filter(x=>x.m===m);
@@ -499,7 +568,7 @@ function linhasDre(ate){
   ['= Resultado antes IRPJ/CSLL',g(d=>d.lair)],['(−) CSLL 9%',g(d=>-d.csll)],['(−) IRPJ 15% + adicional 10%',g(d=>-d.irpj)],['= Lucro líquido (DRE)',g(d=>d.liq)],
   ['(−) Pago adicional (CMV Financeiro − CMV DRE)',g(d=>-d.adic)],['= Resultado financeiro (caixa)',g(d=>d.caixa)]]}}
 
-function mesesDisponiveis(){let a=new Set();Object.values(db.docs).forEach(d=>d.dt&&a.add(d.dt.slice(0,7)));
+function mesesDisponiveis(){let a=new Set();Object.values(db.docs).forEach(d=>d.dt&&a.add(d.dt.slice(0,7)));Object.values(db.bank||{}).forEach(t=>a.add(t.dt.slice(0,7)));
  let hoje=new Date(),y=hoje.getFullYear();for(let i=1;i<=hoje.getMonth()+1;i++)a.add(`${y}-${String(i).padStart(2,'0')}`);return [...a].sort()}
 function initMonths(){let sel=$('#month'),cur=sel.dataset.want||sel.value,ms=mesesDisponiveis();delete sel.dataset.want;
  sel.innerHTML=ms.map(m=>`<option value="${m}">${rotulo(m)}</option>`).join('');sel.value=ms.includes(cur)?cur:(ms.at(-1)||'')}
@@ -637,6 +706,30 @@ function renderApur(m){let a=apuracao(m);tabelaMeses('#apHead','#apBody',a.ms,a.
  $('#sIcms').value=db.saldos.icms||'';$('#sPis').value=db.saldos.pis||'';$('#sCof').value=db.saldos.cofins||'';
  $('#exBody').innerHTML=db.extras.map((e,i)=>`<tr><td>${rotulo(e.month)}</td><td>${esc(e.desc)}</td><td class="n">${brl(e.base)}</td><td class="n">${brl(e.pis)}</td><td class="n">${brl(e.cof)}</td><td class="n">${brl(e.icms)}</td><td><button class="link" onclick="delExtra(${i})">Excluir</button></td></tr>`).join('')}
 function renderDre(m){let d=linhasDre(m);tabelaMeses('#dreHead','#dreBody',d.ms,d.linhas);window._dre=d}
+function opcoesCat(sel){return `<option value="">— Sem categoria —</option><optgroup label="Entra na DRE">${CAT_DRE.map(c=>`<option ${c===sel?'selected':''}>${c}</option>`).join('')}</optgroup><optgroup label="Não entra na DRE">${CAT_FORA.map(c=>`<option ${c===sel?'selected':''}>${c}</option>`).join('')}</optgroup>`}
+function renderFin(m){
+ let T=Object.values(db.bank).filter(t=>t.dt.startsWith(m)).sort((a,b)=>a.dt.localeCompare(b.dt)||a.valor-b.valor);
+ let ent=soma(T.filter(t=>t.valor>0),'valor'),sai=-soma(T.filter(t=>t.valor<0),'valor');
+ $('#fEnt').textContent=brl(ent);$('#fSai').textContent=brl(sai);$('#fSaldo').textContent=brl(ent-sai);$('#fSaldo').className=ent-sai<0?'bad':'ok';
+ $('#fSem').textContent=T.filter(t=>!t.cat).length;$('#fSem').className=T.some(t=>!t.cat)?'warn':'ok';
+ let cats={};T.forEach(t=>{let c=cats[t.cat||'']=cats[t.cat||'']||{n:0,e:0,s:0};c.n++;if(t.valor>0)c.e+=t.valor;else c.s-=t.valor});
+ $('#fCat').innerHTML=Object.entries(cats).sort((a,b)=>(b[1].s+b[1].e)-(a[1].s+a[1].e)).map(([c,v])=>`<tr><td>${c?esc(c):'<span class="warn">Sem categoria</span>'}</td><td>${CAT_DRE.includes(c)?'<span class="ok">Sim</span>':c?'Não':'—'}</td><td class="n">${v.n}</td><td class="n">${brl(v.e)}</td><td class="n">${brl(v.s)}</td><td class="n${cls(v.e-v.s)}">${brl(v.e-v.s)}</td></tr>`).join('')||'<tr><td colspan="6" class="mut">Nenhum lançamento de extrato nesta competência. Importe o OFX ou CSV do banco acima.</td></tr>';
+ let f=$('#fFiltro').value,termo=semAcento($('#fBusca').value.trim());
+ let L=T.filter(t=>(!f||(f==='__sem'?!t.cat:f==='__dre'?CAT_DRE.includes(t.cat):f==='__fora'?t.cat&&!CAT_DRE.includes(t.cat):true))&&(!termo||semAcento(t.desc+' '+brl(t.valor)).includes(termo)));
+ window._fRows=L;
+ $('#fBody').innerHTML=L.slice(0,800).map((t,i)=>`<tr><td>${esc(t.dt)}</td><td style="white-space:normal;min-width:260px">${esc(t.desc)}</td><td class="mut">${esc(t.conta)}</td><td class="n ${t.valor<0?'neg':'ok'}">${brl(t.valor)}</td><td><select onchange="setCatExtrato(${i},this.value)">${opcoesCat(t.cat)}</select>${t.origem==='regra'?' <span class="mut">regra</span>':''}</td><td><button class="link" onclick="regraDoLancamento(${i})">criar regra</button> <button class="link del" onclick="excluirExtrato(${i})">excluir</button></td></tr>`).join('')+
+  (L.length>800?`<tr><td colspan="6" class="mut">Mostrando 800 de ${L.length}. Use a busca ou o filtro.</td></tr>`:'')+(T.length&&!L.length?'<tr><td colspan="6" class="mut">Nenhum lançamento com esse filtro.</td></tr>':'');
+ $('#rgCat').innerHTML=opcoesCat('').replace('<option value="">— Sem categoria —</option>','');
+ $('#rgBody').innerHTML=db.bankRules.map((r,i)=>`<tr><td><b>${esc(r.txt)}</b></td><td>${esc(r.cat)}</td><td>${r.sinal==='D'?'Só débitos':r.sinal==='C'?'Só créditos':'Débitos e créditos'}</td><td><button class="link del" onclick="delRegra(${i})">excluir</button></td></tr>`).join('');
+ renderExp()}
+window.setCatExtrato=(i,c)=>{let t=(window._fRows||[])[i];if(!t)return;t.cat=c;t.origem=c?'manual':'';changed()};
+window.excluirExtrato=i=>{let t=(window._fRows||[])[i];if(t){delete db.bank[t.id];changed()}};
+window.excluirExtratoListado=()=>{let L=window._fRows||[];if(!L.length)return;if(!confirm(`Excluir ${L.length} lançamento(s) de extrato listados?`))return;L.forEach(t=>delete db.bank[t.id]);changed()};
+window.regraDoLancamento=i=>{let t=(window._fRows||[])[i];if(!t)return;if(!t.cat)return alert('Escolha primeiro a categoria deste lançamento; a regra usa essa categoria.');
+ let sugestao=semAcento(t.desc).replace(/[0-9*#\/.-]+/g,' ').replace(/\s+/g,' ').trim().split(' ').slice(0,3).join(' ');
+ let txt=prompt('Classificar como "'+t.cat+'" todo lançamento cuja descrição contenha:',sugestao);if(!txt)return;
+ db.bankRules.unshift({txt:txt.trim(),cat:t.cat,sinal:t.valor<0?'D':'C'});let n=aplicarRegras(false);changed();alert('Regra criada. '+n+' lançamento(s) sem categoria foram classificados.')};
+window.delRegra=i=>{db.bankRules.splice(i,1);changed()};
 function renderExp(){$('#expBody').innerHTML=db.expenses.slice().sort((a,b)=>a.month.localeCompare(b.month)).map(e=>`<tr><td>${rotulo(e.month)}</td><td>${esc(e.cat)}</td><td>${esc(e.desc)}</td><td class="n">${brl(e.value)}</td><td><button class="link" onclick="delExp(${db.expenses.indexOf(e)})">Excluir</button></td></tr>`).join('')||'<tr><td colspan="5" class="mut">Nenhuma despesa lançada.</td></tr>'}
 function quadroReducao(L){
  let R=L.filter(x=>x.t==='NF-e'&&x.icmsNota!==undefined&&reduzido(x)&&(COMPRAS.includes(x.nat)||x.nat==='Venda'));
@@ -680,7 +773,7 @@ function render(){
  let pg=($('#nav button.active')||{}).dataset?.p||'dash';
  renderDash(m);
  ({import:renderImports,prod:renderProducts,rent:()=>renderRent(m),channels:renderChannels,cte:()=>renderCte(m),vendas:()=>renderVendas(m),compras:()=>renderCompras(m),
-   apur:()=>renderApur(m),dre:()=>renderDre(m),finance:renderExp,audit:()=>renderAudit(m),config:renderConfig}[pg]||(()=>{}))();
+   apur:()=>renderApur(m),dre:()=>renderDre(m),finance:()=>renderFin(m),audit:()=>renderAudit(m),config:renderConfig}[pg]||(()=>{}))();
 }
 
 // ------------------------------------------------------------------ ações
@@ -731,6 +824,20 @@ $('#cteAuto').onclick=()=>{let m=$('#month').value;Object.values(db.docs).filter
 $('#lixRestTodos').onclick=()=>{let ks=Object.keys(db.trash).filter(k=>!db.trash[k].apagada);if(!ks.length)return;if(!confirm(`Restaurar ${ks.length} documento(s)?`))return;ks.forEach(k=>{if(!db.canceled[k])db.docs[k]=db.trash[k].doc;delete db.trash[k]});changed()};
 $('#lixApagarTodos').onclick=()=>{let ks=Object.keys(db.trash).filter(k=>!db.trash[k].apagada);if(!ks.length)return;if(!confirm(`Apagar definitivamente ${ks.length} documento(s) da Lixeira? Não dá para desfazer (só reimportando depois de "Parar de ignorar").`))return;ks.forEach(k=>{db.trash[k].doc=null;db.trash[k].apagada=true});changed()};
 $('#lixLiberar').onclick=()=>{let ks=Object.keys(db.trash).filter(k=>db.trash[k].apagada);if(!ks.length)return alert('Não há documentos apagados.');if(!confirm(`Remover ${ks.length} documento(s) apagados da lista de ignorados? Eles voltam se você reimportar o ZIP.`))return;ks.forEach(k=>delete db.trash[k]);changed()};
+$('#bkImport').onclick=async()=>{let fs=[...$('#bkFiles').files];if(!fs.length)return alert('Selecione o arquivo do extrato (.ofx ou .csv).');
+ $('#bkResult').innerHTML='';let mesMax='';
+ for(let f of fs){let bytes=new Uint8Array(await f.arrayBuffer()),txt=new TextDecoder('utf-8').decode(bytes);if(txt.includes('\uFFFD'))txt=new TextDecoder('latin1').decode(bytes);
+  try{let L=/<OFX>|OFXHEADER|<STMTTRN>/i.test(txt)?lerOfx(txt,f.name):lerCsv(txt,f.name),novos=0,rep=0;
+   for(let t of L){if(db.bank[t.id]){rep++;continue}t.cat='';t.origem='';db.bank[t.id]=t;let c=regraExtrato(t);if(c){t.cat=c;t.origem='regra'}novos++;if(t.dt.slice(0,7)>mesMax)mesMax=t.dt.slice(0,7)}
+   let semCat=L.filter(t=>db.bank[t.id]&&!db.bank[t.id].cat).length;
+   $('#bkResult').insertAdjacentHTML('beforeend',`<div class="note" style="margin-bottom:6px"><b>${esc(f.name)}</b>: ${L.length} lançamentos lidos • <b>${novos} novos</b> • ${rep} já importados • ${semCat} sem categoria</div>`)}
+  catch(e){$('#bkResult').insertAdjacentHTML('beforeend',`<div class="note red"><b>${esc(f.name)}</b>: ${esc(e.message)}</div>`)}}
+ if(mesMax)$('#month').dataset.want=mesMax;changed()};
+$('#rgAdd').onclick=()=>{let txt=$('#rgTxt').value.trim();if(!txt)return alert('Informe o texto.');db.bankRules.unshift({txt,cat:$('#rgCat').value,sinal:$('#rgSinal').value});$('#rgTxt').value='';
+ let n=aplicarRegras(false);changed();alert('Regra adicionada. '+n+' lançamento(s) sem categoria foram classificados.')};
+$('#rgAplicar').onclick=()=>{let n=aplicarRegras(true);changed();alert(n+' lançamento(s) reclassificados (os classificados à mão não mudam).')};
+$('#fFiltro').onchange=render;$('#fBusca').oninput=render;
+$('#fCsv').onclick=()=>csv('extrato_'+$('#month').value+'.csv',['Data','Descrição','Conta','Valor','Categoria','Entra na DRE'],(window._fRows||[]).map(t=>[t.dt,t.desc,t.conta,t.valor,t.cat,CAT_DRE.includes(t.cat)?'Sim':'Não']));
 $('#closeMonth').onclick=()=>{let m=$('#month').value;if(!db.closed.includes(m))db.closed.push(m);changed()};
 $('#openMonth').onclick=()=>{db.closed=db.closed.filter(x=>x!==$('#month').value);changed()};
 $('#month').onchange=()=>{let m=$('#month').value;$('#expMonth').value=$('#exMonth').value=m;render()};

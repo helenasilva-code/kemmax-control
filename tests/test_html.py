@@ -83,7 +83,7 @@ def test_html_completo(tmp_path):
         page.click("#addProd")
         assert "CMV Financeiro R$ 60,00" in page.inner_text("#prodMsg").replace("\xa0", " ")
 
-        page.click("text=Financeiro / Despesas")
+        page.click("text=Financeiro / Extrato")
         page.fill("#expMonth", "2026-08")
         page.fill("#expVal", "100")
         page.click("#addExp")
@@ -369,5 +369,90 @@ def test_html_lixeira(tmp_path):
 
         page.click("#importsBody >> text=remover do histórico >> nth=0")
         assert page.evaluate("db.imports.length") == 3
+        assert erros == []
+        browser.close()
+
+
+OFX = """OFXHEADER:100
+DATA:OFXSGML
+VERSION:102
+
+<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><CURDEF>BRL<BANKACCTFROM><BANKID>0341<ACCTID>12345-6</BANKACCTFROM>
+<BANKTRANLIST><DTSTART>20260801<DTEND>20260831
+<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20260803120000[-03:EST]<TRNAMT>-45.90<FITID>A1<MEMO>TARIFA PACOTE SERVICOS
+<STMTTRN><TRNTYPE>CREDIT<DTPOSTED>20260804<TRNAMT>12500.00<FITID>A2<MEMO>PIX RECEBIDO MERCADO PAGO IP
+<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20260805<TRNAMT>-389.77<FITID>A3<MEMO>PAG CONTA ENEL SP
+<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20260806<TRNAMT>-1500.00<FITID>A4<MEMO>PIX ENVIADO JOAO DA SILVA
+<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20260807<TRNAMT>-800.00<FITID>A5<MEMO>DARF SIMPLES
+</BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>
+"""
+
+CSV_BANCO = """Extrato conta corrente - Banco X
+Agência;Conta
+1234;99999-0
+
+Data;Histórico;Documento;Débito (R$);Crédito (R$);Saldo (R$)
+31/07/2026;SALDO ANTERIOR;;;;10.000,00
+10/08/2026;"PAGTO FACEBK *ADS; CAMPANHA";111;1.234,56;;8.765,44
+11/08/2026;RENDIMENTO APLIC AUTOMATICA;;;12,34;8.777,78
+12/08/2026;PIX ENVIADO JOAO DA SILVA;222;1.500,00;;7.277,78
+"""
+
+
+def test_html_extrato(tmp_path):
+    (tmp_path / "itau.ofx").write_text(OFX, encoding="latin-1")
+    (tmp_path / "bancox.csv").write_text(CSV_BANCO, encoding="latin-1")
+    chromium = glob.glob("/opt/pw-browsers/chromium*/chrome-linux*/chrome")
+    with sync_api.sync_playwright() as p:
+        browser = p.chromium.launch(executable_path=chromium[0] if chromium else None)
+        page = browser.new_page()
+        erros = []
+        page.on("pageerror", lambda e: erros.append(str(e)))
+        page.on("dialog", lambda d: d.accept(d.default_value) if d.type == "prompt" else d.accept())
+        page.goto("file://" + HTML)
+        page.wait_for_function("window.document.querySelector('#month').options.length>0")
+        page.click("text=Financeiro / Extrato")
+        page.set_input_files("#bkFiles", [str(tmp_path / "itau.ofx"), str(tmp_path / "bancox.csv")])
+        page.click("#bkImport")
+        page.wait_for_function("document.querySelector('#bkResult').innerText.includes('bancox.csv')")
+        res = page.inner_text("#bkResult")
+        assert "itau.ofx: 5 lançamentos lidos" in res and "bancox.csv: 3 lançamentos lidos" in res
+        page.select_option("#month", "2026-08")
+
+        cat = page.evaluate("Object.fromEntries(Object.values(db.bank).map(t=>[t.desc,t.cat]))")
+        assert cat["TARIFA PACOTE SERVICOS"] == "Despesas financeiras"
+        assert cat["PIX RECEBIDO MERCADO PAGO IP"] == "Recebimento de vendas / marketplace"
+        assert cat["PAG CONTA ENEL SP"] == "Despesas fixas"
+        assert cat["DARF SIMPLES"] == "Impostos (apurados nas notas)"
+        assert cat["PAGTO FACEBK *ADS; CAMPANHA"] == "ADS / Publicidade"
+        assert cat["RENDIMENTO APLIC AUTOMATICA"] == "Receitas financeiras"
+        assert cat["PIX ENVIADO JOAO DA SILVA"] == ""
+        assert page.evaluate("Object.values(db.bank).find(t=>t.desc.startsWith('PAGTO FACEBK')).valor") == pytest.approx(-1234.56)
+        assert page.inner_text("#fSem") == "2"
+        assert _valor(page, "#fEnt") == pytest.approx(12512.34)
+
+        # reimportar não duplica
+        page.click("#bkImport")
+        page.wait_for_function("document.querySelector('#bkResult').innerText.includes('0 novos')")
+        assert page.evaluate("Object.keys(db.bank).length") == 8
+
+        # classificar à mão e criar regra: o outro PIX igual é classificado junto
+        page.select_option("#fFiltro", "__sem")
+        page.select_option("#fBody tr >> nth=0 >> select", "Pessoal e pró-labore")
+        page.select_option("#fFiltro", "")
+        linha = page.locator("#fBody tr", has_text="2026-08-06")
+        linha.locator("text=criar regra").click()
+        assert page.inner_text("#fSem") == "0"
+
+        # DRE recebe as despesas do extrato (e não os recebimentos, impostos...)
+        page.click("text=DRE Mensal")
+        def linha_dre(r):
+            return page.evaluate("""([r])=>{let t=window._dre;let i=t.linhas.findIndex(l=>l[0]===r);return t.linhas[i][1][t.ms.indexOf('2026-08')]}""", [r])
+        assert linha_dre("(−) Despesas financeiras") == pytest.approx(-45.90)
+        assert linha_dre("(−) Despesas fixas") == pytest.approx(-389.77)
+        assert linha_dre("(−) ADS / Publicidade") == pytest.approx(-1234.56)
+        assert linha_dre("(−) Pessoal e pró-labore") == pytest.approx(-3000)
+        assert linha_dre("(+) Receitas financeiras") == pytest.approx(12.34)
+        assert linha_dre("Receita bruta de vendas") == pytest.approx(0)
         assert erros == []
         browser.close()
