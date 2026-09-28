@@ -729,3 +729,33 @@ def test_html_creditos_automaticos():
         assert page.input_value("#icmscred") == "12.00"
         assert erros == []
         browser.close()
+
+
+def test_html_fulfillment(tmp_path):
+    chromium = glob.glob("/opt/pw-browsers/chromium*/chrome-linux*/chrome")
+    with sync_api.sync_playwright() as p:
+        browser = p.chromium.launch(executable_path=chromium[0] if chromium else None)
+        page = browser.new_page()
+        erros = []
+        page.on("pageerror", lambda e: erros.append(str(e)))
+        page.on("dialog", lambda d: d.accept())
+        page.goto("file://" + HTML)
+        page.wait_for_function("window.document.querySelector('#month').options.length>0")
+        page.click("#nav button[data-p=import]")
+        page.set_input_files("#files", _zip(tmp_path))
+        page.click("#registerImport")
+        page.wait_for_selector("text=Importação concluída.")
+        page.click("#nav button[data-p=prod]")
+        page.fill("#sku", "P1"); page.fill("#purchase", "50"); page.fill("#pack", "0.90")
+        page.fill("#piscred", "0"); page.fill("#cofcred", "0")
+        page.click("#addProd")
+        prod = page.evaluate("db.products[0]")
+        assert prod["cmvdre"] == 50 and prod["cmvf"] == 50          # fulfillment fora do CMV
+        page.select_option("#month", "2026-08")
+        page.click("#nav button[data-p=dre]")
+        f = page.evaluate("(()=>{let t=window._dre;let i=t.linhas.findIndex(l=>l[0]==='(−) Fulfillment / embalagem');return t.linhas[i][1][t.ms.indexOf('2026-08')]})()")
+        assert f == pytest.approx(-9.0)                              # 10 unidades vendidas x 0,90 (devolução não estorna)
+        page.click("#nav button[data-p=rent]")
+        assert "R$ 9,00" in page.inner_text("#rentBody").replace("\xa0", " ")
+        assert erros == []
+        browser.close()

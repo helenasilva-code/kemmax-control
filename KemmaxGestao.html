@@ -107,11 +107,11 @@ td.n,th.n{text-align:right}tr.tot td{font-weight:700;background:#f8fafc}.link.de
 <section class="page" id="prod"><div class="card"><h2 id="prodTitulo">Produtos e Custos por Vigência</h2>
 <div class="fgrid">
 <label>SKU<input id="sku"></label><label>Produto<input id="pname"></label><label class="curto">Vigência<input type="date" id="vig"></label><label>Compra/NF<input type="number" step=".01" id="purchase"></label><label>IPI<input type="number" step=".01" id="ipi"></label>
-<label>Pago adicional<input type="number" step=".01" id="outside"></label><label>Embalagem<input type="number" step=".01" id="pack"></label><label>Outros<input type="number" step=".01" id="other"></label><label>CMV Financeiro<input type="number" step=".01" id="cmvf" placeholder="calculado se vazio"></label><label>Créd. ICMS<input type="number" step=".01" id="icmscred"></label>
+<label>Pago adicional<input type="number" step=".01" id="outside"></label><label>Fulfillment / embalagem (por venda)<input type="number" step=".01" id="pack"></label><label>Outros<input type="number" step=".01" id="other"></label><label>CMV Financeiro<input type="number" step=".01" id="cmvf" placeholder="calculado se vazio"></label><label>Créd. ICMS<input type="number" step=".01" id="icmscred"></label>
 <label>Créd. PIS<input type="number" step=".01" id="piscred"></label><label>Créd. COFINS<input type="number" step=".01" id="cofcred"></label><label>CMV DRE<input type="number" step=".01" id="cmvdre" placeholder="calculado se vazio"></label>
 <div class="fbtn"><button class="primary" id="addProd">Salvar vigência</button><button class="btn gray" id="cancelProd" style="display:none">Cancelar</button></div>
 </div>
-<p class="mut">CMV Financeiro e CMV DRE ficam separados. O valor pago adicional não gera crédito fiscal automaticamente. Deixe CMV DRE e CMV Financeiro em branco para o sistema calcular: CMV DRE = Compra/NF + IPI + embalagem + outros − créditos; CMV Financeiro = CMV DRE + pago adicional.</p>
+<p class="mut">CMV Financeiro e CMV DRE ficam separados. O valor pago adicional não gera crédito fiscal automaticamente. Deixe CMV DRE e CMV Financeiro em branco para o sistema calcular: CMV DRE = Compra/NF + IPI + outros − créditos; CMV Financeiro = CMV DRE + pago adicional. Fulfillment / embalagem é despesa de venda: não entra no CMV e é descontado em cada unidade vendida.</p>
 <details class="calc" open><summary>Créditos calculados automaticamente (ICMS, PIS e COFINS)</summary><div class="actions" style="margin-top:8px">
 <label>Alíquota ICMS %<input type="number" step=".01" id="icmspct" placeholder="ex.: 12"></label><label>Redução da base %<input type="number" step=".01" id="icmsred" placeholder="ex.: 26,67"></label><label>Carga efetiva<input id="icmscarga" disabled placeholder="—"></label>
 <label>PIS %<input type="number" step=".01" id="pisPct"></label><label>COFINS %<input type="number" step=".01" id="cofPct"></label><button class="btn gray" id="calcCred">Recalcular créditos</button></div>
@@ -126,7 +126,7 @@ td.n,th.n{text-align:right}tr.tot td{font-weight:700;background:#f8fafc}.link.de
 <label>Canal<select id="rentChannel"></select></label><label>Agrupar<select id="rentGroup"><option value="sku">Produto</option><option value="skuch">Produto e canal</option></select></label>
 <button class="btn gray" id="rentCsv">Exportar CSV</button></div></div>
 <div class="grid"><div class="card kpi"><span>Venda</span><b id="rVenda">R$ 0,00</b></div><div class="card kpi"><span>Resultado DRE</span><b id="rRes">R$ 0,00</b></div><div class="card kpi"><span>Resultado financeiro</span><b id="rFin">R$ 0,00</b></div><div class="card kpi"><span>Produtos com prejuízo</span><b id="rNeg">0</b></div></div>
-<div class="card"><div class="scroll"><table><thead><tr><th>SKU</th><th>Produto</th><th>Canal</th><th class="n">Qtd.</th><th class="n">Venda</th><th class="n">Impostos</th><th class="n">Comissão/tarifas</th><th class="n">Frete</th><th class="n">CMV DRE</th><th class="n">Resultado DRE</th><th class="n">Margem</th><th class="n">Pago adicional</th><th class="n">Resultado financeiro</th><th>Situação</th></tr></thead><tbody id="rentBody"></tbody></table></div></div></section>
+<div class="card"><div class="scroll"><table><thead><tr><th>SKU</th><th>Produto</th><th>Canal</th><th class="n">Qtd.</th><th class="n">Venda</th><th class="n">Impostos</th><th class="n">Comissão/tarifas</th><th class="n">Frete</th><th class="n">Fulfillment</th><th class="n">CMV DRE</th><th class="n">Resultado DRE</th><th class="n">Margem</th><th class="n">Pago adicional</th><th class="n">Resultado financeiro</th><th>Situação</th></tr></thead><tbody id="rentBody"></tbody></table></div></div></section>
 
 <section class="page" id="channels"><div class="card"><h2>Identificação dos canais</h2>
 <p class="mut">A venda é ligada ao canal pelo <b>CNPJ do intermediador</b> que vai na NF-e. Sem intermediador, o sistema tenta pelo nome da pasta/arquivo do ZIP (ex.: pasta "Mercado Livre"). A devolução herda o canal da venda original.</p>
@@ -263,7 +263,7 @@ const idbPut=(k,v)=>new Promise((res,rej)=>{let tx=idb.transaction('state','read
 async function saveNow(){clearTimeout(saveTimer);if(idb)await idbPut(K,db)}
 function changed(){versao++;cache=null;clearTimeout(saveTimer);saveTimer=setTimeout(saveNow,200);render()}
 async function loadDB(){await openDB();let x=await idbGet(K);db=Object.assign(novoDb(),x||{});
- db.config=Object.assign(novoDb().config,db.config||{});if(!Array.isArray(db.bankRules))db.bankRules=REGRAS_BANCO.map(([txt,cat,sinal])=>({txt,cat,sinal}));if(!Array.isArray(db.config.ncmReducao))db.config.ncmReducao=NCM_PADRAO.map(x=>({...x}));
+ db.config=Object.assign(novoDb().config,db.config||{});db.products=(db.products||[]).map(calcProduto);if(!Array.isArray(db.bankRules))db.bankRules=REGRAS_BANCO.map(([txt,cat,sinal])=>({txt,cat,sinal}));if(!Array.isArray(db.config.ncmReducao))db.config.ncmReducao=NCM_PADRAO.map(x=>({...x}));
  if(!x){ // traz cadastros da V3, se existirem
   try{let v3=await idbGet('kemmax_gestao_lr_v3');if(v3){db.products=(v3.products||[]).map(p=>calcProduto(p));
    db.channels=v3.channels||[];db.expenses=(v3.expenses||[]).filter(e=>e.cat);db.closed=v3.closed||[]}}catch(e){}
@@ -498,7 +498,7 @@ function classificarCte(d){
 // ------------------------------------------------------------------ custos, canais e vendas
 function calcProduto(p){p=Object.assign({},p);for(let f of ['purchase','ipi','outside','pack','other','icms','pis','cof'])p[f]=Number(p[f])||0;
  p.cmvdreManual=Number(p.cmvdreManual)||0;p.cmvfManual=Number(p.cmvfManual)||0;
- p.cmvdre=p.cmvdreManual||(p.cmvfManual?p.cmvfManual-p.outside-p.icms-p.pis-p.cof:p.purchase+p.ipi+p.pack+p.other-p.icms-p.pis-p.cof);
+ p.cmvdre=p.cmvdreManual||(p.cmvfManual?p.cmvfManual-p.outside-p.icms-p.pis-p.cof:p.purchase+p.ipi+p.other-p.icms-p.pis-p.cof);
  p.cmvf=p.cmvfManual||(p.cmvdre+p.outside);return p}
 function produtoVigente(sku,dt){sku=String(sku||'').trim().toUpperCase();
  let c=db.products.filter(p=>String(p.sku).trim().toUpperCase()===sku).sort((a,b)=>String(a.vig).localeCompare(String(b.vig)));
@@ -523,8 +523,8 @@ function derivar(){
   let p=produtoVigente(L.c,L.dt),imp=L.icmsD+L.difal+L.pisD+L.cofD-L.icmsC-L.pisC-L.cofC;
   let fees=L.rec*((+r.pct||0)+(+r.ant||0)+(+r.other||0))/100+q*(+r.fixed||0);
   let frete=venda&&freteNf[L.k]&&recNf[L.k]?freteNf[L.k]*L.rec/recNf[L.k]:0;
-  let cmv=p?q*p.cmvdre:0,adic=p?q*p.outside:0,res=L.rec-imp-fees-frete-cmv;
-  vendas.push({L,m:L.m,dt:L.dt,k:L.k,sku:L.c,nome:(p&&p.name)||L.d,canal,q,rec:L.rec,imp,fees,frete,cmv,adic,res,resFin:res-adic,temCusto:!!p})}
+  let cmv=p?q*p.cmvdre:0,adic=p?q*p.outside:0,fulf=p&&venda?q*p.pack:0,res=L.rec-imp-fees-frete-fulf-cmv;
+  vendas.push({L,m:L.m,dt:L.dt,k:L.k,sku:L.c,nome:(p&&p.name)||L.d,canal,q,rec:L.rec,imp,fees,frete,fulf,cmv,adic,res,resFin:res-adic,temCusto:!!p})}
  cache={lancs,vendas};return cache}
 
 // ------------------------------------------------------------------ agregações mensais
@@ -639,11 +639,11 @@ function dreMes(m){
  let vd=L.filter(x=>x.nat==='Venda'),dv=L.filter(x=>x.nat==='Devolução de venda'),fv=L.filter(x=>x.nat==='Frete sobre vendas');
  let rec=soma(vd,'rec'),dev=soma(dv,'rec'),icms=soma(vd,'icmsD')-soma(dv,'icmsC'),difal=soma(vd,'difal'),pis=soma(vd,'pisD')-soma(dv,'pisC'),cof=soma(vd,'cofD')-soma(dv,'cofC');
  let rl=rec+dev-icms-difal-pis-cof,cmv=soma(V,'cmv'),lb=rl-cmv,fees=soma(V,'fees'),frete=soma(fv,x=>x.vc-x.icmsC-x.pisC-x.cofC);
- let mc=lb-fees-frete,e=despesasMes(m),ex=extrasMes(m),creditosExtras=ex.pis+ex.cof+ex.icms;
+ let fulf=soma(V,'fulf'),mc=lb-fees-frete-fulf,e=despesasMes(m),ex=extrasMes(m),creditosExtras=ex.pis+ex.cof+ex.icms;
  let adm=['ADS / Publicidade','Pessoal e pró-labore','Despesas fixas','Serviços','Outras despesas'].map(c=>[c,e[c]||0]);
  let op=mc-soma(adm,x=>x[1])+creditosExtras,recFin=e['Receitas financeiras']||0,pcFin=recFin*0.0465,despFin=e['Despesas financeiras']||0;
  let lair=op+recFin-pcFin-despFin,b=Math.max(lair,0),csll=b*0.09,irpj=b*0.15+Math.max(b-20000,0)*0.10,liq=lair-csll-irpj,adic=soma(V,'adic');
- return {rec,dev,icms,difal,pis,cof,rl,cmv,lb,fees,frete,mc,adm,creditosExtras,op,recFin,pcFin,despFin,lair,csll,irpj,liq,adic,caixa:liq-adic,semCusto:V.filter(x=>!x.temCusto)}
+ return {rec,dev,icms,difal,pis,cof,rl,cmv,lb,fees,frete,fulf,mc,adm,creditosExtras,op,recFin,pcFin,despFin,lair,csll,irpj,liq,adic,caixa:liq-adic,semCusto:V.filter(x=>!x.temCusto)}
 }
 function apuracao(ate){
  let {lancs}=derivar(),ms=mesesAno(ate),s={ICMS:+db.saldos.icms||0,PIS:+db.saldos.pis||0,COFINS:+db.saldos.cofins||0},linhas=[];
@@ -667,7 +667,7 @@ function linhasDre(ate){
  return {ms,linhas:[
   ['Receita bruta de vendas',g(d=>d.rec)],['(−) Devoluções de vendas',g(d=>d.dev)],['(−) ICMS',g(d=>-d.icms)],['(−) DIFAL / FCP',g(d=>-d.difal)],
   ['(−) PIS',g(d=>-d.pis)],['(−) COFINS',g(d=>-d.cof)],['= Receita líquida',g(d=>d.rl)],['(−) CMV DRE',g(d=>-d.cmv)],['= Lucro bruto',g(d=>d.lb)],
-  ['(−) Comissões / tarifas',g(d=>-d.fees)],['(−) Fretes de venda (CT-e, líquido de créditos)',g(d=>-d.frete)],['= Margem de contribuição',g(d=>d.mc)],
+  ['(−) Comissões / tarifas',g(d=>-d.fees)],['(−) Fretes de venda (CT-e, líquido de créditos)',g(d=>-d.frete)],['(−) Fulfillment / embalagem',g(d=>-d.fulf)],['= Margem de contribuição',g(d=>d.mc)],
   ...cats.map((c,i)=>['(−) '+c,g(d=>-d.adm[i][1])]),['(+) Créditos extras',g(d=>d.creditosExtras)],['= Resultado operacional',g(d=>d.op)],
   ['(+) Receitas financeiras',g(d=>d.recFin)],['(−) PIS/COFINS s/ receitas financeiras',g(d=>-d.pcFin)],['(−) Despesas financeiras',g(d=>-d.despFin)],
   ['= Resultado antes IRPJ/CSLL',g(d=>d.lair)],['(−) CSLL 9%',g(d=>-d.csll)],['(−) IRPJ 15% + adicional 10%',g(d=>-d.irpj)],['= Lucro líquido (DRE)',g(d=>d.liq)],
@@ -747,14 +747,14 @@ function renderRent(m){
  let {vendas}=derivar(),per=$('#rentPeriod').value,ch=$('#rentChannel').value,g=$('#rentGroup').value,y=m.slice(0,4);
  let V=vendas.filter(x=>(per==='m'?x.m===m:x.m.startsWith(y)&&x.m<=m)&&(!ch||x.canal===ch));
  let canais=[...new Set(vendas.map(x=>x.canal))].sort();$('#rentChannel').innerHTML='<option value="">Todos</option>'+canais.map(c=>`<option ${c===ch?'selected':''}>${esc(c)}</option>`).join('');
- let grupos={};for(let v of V){let k=g==='sku'?v.sku:v.sku+'|'+v.canal,x=grupos[k]=grupos[k]||{sku:v.sku,nome:v.nome,canal:g==='sku'?'':v.canal,q:0,rec:0,imp:0,fees:0,frete:0,cmv:0,res:0,adic:0,resFin:0,temCusto:true};
-  for(let f of ['q','rec','imp','fees','frete','cmv','res','adic','resFin'])x[f]+=v[f];x.temCusto=x.temCusto&&v.temCusto}
+ let grupos={};for(let v of V){let k=g==='sku'?v.sku:v.sku+'|'+v.canal,x=grupos[k]=grupos[k]||{sku:v.sku,nome:v.nome,canal:g==='sku'?'':v.canal,q:0,rec:0,imp:0,fees:0,frete:0,fulf:0,cmv:0,res:0,adic:0,resFin:0,temCusto:true};
+  for(let f of ['q','rec','imp','fees','frete','fulf','cmv','res','adic','resFin'])x[f]+=v[f];x.temCusto=x.temCusto&&v.temCusto}
  let rows=Object.values(grupos).sort((a,b)=>a.resFin-b.resFin);
  rows.forEach(r=>{r.marg=r.rec?r.res/r.rec:0;r.sit=!r.temCusto?'Sem custo':r.resFin<0?'Prejuízo':'Lucro'});
  $('#rVenda').textContent=brl(soma(V,'rec'));$('#rRes').textContent=brl(soma(V,'res'));$('#rFin').textContent=brl(soma(V,'resFin'));$('#rNeg').textContent=rows.filter(r=>r.sit==='Prejuízo').length;
  let sem=rows.filter(r=>r.sit==='Sem custo');
- $('#rentBody').innerHTML=(sem.length?`<tr><td colspan="14"><div class="note yel">${sem.length} produto(s) sem custo cadastrado: o resultado deles está superestimado. <button class="link" onclick="cadastrarSemCusto()">Criar esses SKUs em Produtos e Custos</button></div></td></tr>`:'')+
-  rows.map(r=>`<tr><td><b>${esc(r.sku)}</b></td><td>${esc(r.nome)}</td><td>${esc(r.canal)}</td><td class="n">${qtd(r.q)}</td><td class="n">${brl(r.rec)}</td><td class="n">${brl(r.imp)}</td><td class="n">${brl(r.fees)}</td><td class="n">${brl(r.frete)}</td><td class="n">${brl(r.cmv)}</td><td class="n${cls(r.res)}"><b>${brl(r.res)}</b></td><td class="n${cls(r.marg)}">${pct(r.marg)}</td><td class="n">${brl(r.adic)}</td><td class="n${cls(r.resFin)}"><b>${brl(r.resFin)}</b></td><td class="${r.sit==='Lucro'?'ok':r.sit==='Prejuízo'?'bad':'warn'}">${r.sit}</td></tr>`).join('');
+ $('#rentBody').innerHTML=(sem.length?`<tr><td colspan="15"><div class="note yel">${sem.length} produto(s) sem custo cadastrado: o resultado deles está superestimado. <button class="link" onclick="cadastrarSemCusto()">Criar esses SKUs em Produtos e Custos</button></div></td></tr>`:'')+
+  rows.map(r=>`<tr><td><b>${esc(r.sku)}</b></td><td>${esc(r.nome)}</td><td>${esc(r.canal)}</td><td class="n">${qtd(r.q)}</td><td class="n">${brl(r.rec)}</td><td class="n">${brl(r.imp)}</td><td class="n">${brl(r.fees)}</td><td class="n">${brl(r.frete)}</td><td class="n">${brl(r.fulf)}</td><td class="n">${brl(r.cmv)}</td><td class="n${cls(r.res)}"><b>${brl(r.res)}</b></td><td class="n${cls(r.marg)}">${pct(r.marg)}</td><td class="n">${brl(r.adic)}</td><td class="n${cls(r.resFin)}"><b>${brl(r.resFin)}</b></td><td class="${r.sit==='Lucro'?'ok':r.sit==='Prejuízo'?'bad':'warn'}">${r.sit}</td></tr>`).join('');
  window._rentRows=rows}
 window.cadastrarSemCusto=()=>{let {vendas}=derivar(),n=0,vistos=new Set(db.products.map(p=>String(p.sku).trim().toUpperCase()));
  for(let v of vendas)if(!v.temCusto&&!vistos.has(String(v.sku).trim().toUpperCase())){vistos.add(String(v.sku).trim().toUpperCase());db.products.push(calcProduto({sku:v.sku,name:v.nome,vig:''}));n++}
@@ -1099,16 +1099,16 @@ function xlsx(abas){ // abas: [[nome,[linhas]]] — números viram células num�
 function relatorioExcel(){
  let m=$('#month').value,R=resumoMeses(m),d=linhasDre(m),a=apuracao(m),{vendas,lancs}=derivar(),y=m.slice(0,4);
  let tab=t=>[['Linha',...t.ms.map(rotulo),'Total'],...t.linhas.map(([r,v,tp])=>[r,...v,tp==='p'?v[0]:tp==='u'?v.at(-1):v.reduce((s,z)=>s+z,0)])];
- let g={};vendas.filter(v=>v.m.startsWith(y)&&v.m<=m).forEach(v=>{let x=g[v.sku+'|'+v.canal]=g[v.sku+'|'+v.canal]||{sku:v.sku,nome:v.nome,canal:v.canal,q:0,rec:0,imp:0,fees:0,frete:0,cmv:0,res:0,adic:0};
-  for(let f of ['q','rec','imp','fees','frete','cmv','res','adic'])x[f]+=v[f]});
+ let g={};vendas.filter(v=>v.m.startsWith(y)&&v.m<=m).forEach(v=>{let x=g[v.sku+'|'+v.canal]=g[v.sku+'|'+v.canal]||{sku:v.sku,nome:v.nome,canal:v.canal,q:0,rec:0,imp:0,fees:0,frete:0,fulf:0,cmv:0,res:0,adic:0};
+  for(let f of ['q','rec','imp','fees','frete','fulf','cmv','res','adic'])x[f]+=v[f]});
  let cred=f=>mesesAno(m).map(mm=>{let L=lancs.filter(x=>x.m===mm&&f(x));return [rotulo(mm),new Set(L.map(x=>x.k)).size,soma(L,'vc'),soma(L,'bpc'),soma(L,'icmsC'),soma(L,'pisC'),soma(L,'cofC'),soma(L,credito)]});
  let cab=['Mês','Documentos','Valor','Base PIS/COFINS','Crédito ICMS','Crédito PIS','Crédito COFINS','Total'];
  return xlsx([
   ['Resumo mês a mês',[['Mês','Faturamento','Compras','Créd. ICMS','Créd. PIS','Créd. COFINS','ICMS a recolher','PIS a recolher','COFINS a recolher','DIFAL + FCP','Lucro líquido','Margem %','Resultado caixa'],
    ...R.map(r=>[rotulo(r.m),r.fat,r.compras,r.cIcms,r.cPis,r.cCof,r.icms,r.pis,r.cof,r.difal,r.liq,r.marg*100,r.caixa])]],
   ['DRE',tab(d)],['Apuração ICMS PIS COFINS',tab(a)],
-  ['Rentabilidade (ano)',[['SKU','Produto','Canal','Qtd','Venda','Impostos','Comissão/tarifas','Frete','CMV DRE','Resultado DRE','Margem %','Pago adicional','Resultado financeiro'],
-   ...Object.values(g).sort((p,q)=>q.res-p.res).map(x=>[x.sku,x.nome,x.canal,x.q,x.rec,x.imp,x.fees,x.frete,x.cmv,x.res,x.rec?x.res/x.rec*100:0,x.adic,x.res-x.adic])]],
+  ['Rentabilidade (ano)',[['SKU','Produto','Canal','Qtd','Venda','Impostos','Comissão/tarifas','Frete','Fulfillment','CMV DRE','Resultado DRE','Margem %','Pago adicional','Resultado financeiro'],
+   ...Object.values(g).sort((p,q)=>q.res-p.res).map(x=>[x.sku,x.nome,x.canal,x.q,x.rec,x.imp,x.fees,x.frete,x.fulf,x.cmv,x.res,x.rec?x.res/x.rec*100:0,x.adic,x.res-x.adic])]],
   ['Créditos compras',[cab,...cred(x=>entradaNfe(x)&&COMPRAS.includes(x.nat))]],
   ['Créditos CT-e',[cab,...cred(x=>x.t==='CT-e')]]])}
 // exportação CSV (abre no Excel)
@@ -1118,8 +1118,8 @@ function csv(nome,cab,linhas){baixar(nome,'﻿'+[cab,...linhas].map(l=>l.map(cel
 function csvMeses(nome,t){csv(nome,['Linha',...t.ms.map(rotulo),'Total'],t.linhas.map(([r,v,tp])=>[r,...v,tp==='p'?v[0]:tp==='u'?v.at(-1):v.reduce((a,b)=>a+b,0)]))}
 $('#dreCsv').onclick=()=>csvMeses('dre_mensal.csv',window._dre);
 $('#apCsv').onclick=()=>csvMeses('apuracao_impostos.csv',window._apur);
-$('#rentCsv').onclick=()=>csv('rentabilidade.csv',['SKU','Produto','Canal','Qtd','Venda','Impostos','Comissão/tarifas','Frete','CMV DRE','Resultado DRE','Margem %','Pago adicional','Resultado financeiro','Situação'],
- (window._rentRows||[]).map(r=>[r.sku,r.nome,r.canal,r.q,r.rec,r.imp,r.fees,r.frete,r.cmv,r.res,r.marg*100,r.adic,r.resFin,r.sit]));
+$('#rentCsv').onclick=()=>csv('rentabilidade.csv',['SKU','Produto','Canal','Qtd','Venda','Impostos','Comissão/tarifas','Frete','Fulfillment','CMV DRE','Resultado DRE','Margem %','Pago adicional','Resultado financeiro','Situação'],
+ (window._rentRows||[]).map(r=>[r.sku,r.nome,r.canal,r.q,r.rec,r.imp,r.fees,r.frete,r.fulf,r.cmv,r.res,r.marg*100,r.adic,r.resFin,r.sit]));
 $('#vdCsv').onclick=()=>csv('nf_venda_'+$('#month').value+({'SP':'_SP','fora':'_fora_SP'}[($('#vdAbas button.on')||{}).dataset?.uf]||'')+'.csv',['Data','NF','Cliente','Canal','UF','Tipo','SKU','Produto','Qtd','Valor','ICMS','DIFAL','FCP','PIS','COFINS','Comissão/tarifas','Frete','CMV DRE','Resultado'],
  (window._vdRows||[]).flatMap(r=>r.itens.map(i=>[r.dt,r.n,r.part,r.canal,r.uf,r.tipo,i.sku,i.d,i.q,i.rec,i.icms,i.difal,i.fcp,i.pis,i.cof,i.fees,i.frete,i.cmv,i.res])));
 $('#cpCsv').onclick=()=>csv('nf_compra_'+$('#month').value+'.csv',['Data','NF','Fornecedor','Natureza','CFOP','Valor','IPI','ICMS-ST','Créd. ICMS','Créd. PIS','Créd. COFINS','Custo líquido'],
