@@ -787,3 +787,30 @@ def test_html_custos_full():
         assert page.input_value("#icmscred") == "26.40"
         assert erros == []
         browser.close()
+
+
+def test_html_kit():
+    chromium = glob.glob("/opt/pw-browsers/chromium*/chrome-linux*/chrome")
+    with sync_api.sync_playwright() as p:
+        browser = p.chromium.launch(executable_path=chromium[0] if chromium else None)
+        page = browser.new_page()
+        erros = []
+        page.on("pageerror", lambda e: erros.append(str(e)))
+        page.goto("file://" + HTML)
+        page.wait_for_function("window.document.querySelector('#month').options.length>0")
+        page.click("#nav button[data-p=prod]")
+        page.fill("#sku", "CX36WIREOBRA58A5")
+        page.fill("#kitUnit", "0.60"); page.fill("#kitQtd", "36")
+        assert page.input_value("#purchase") == "21.60"
+        page.fill("#icmspct", "18")
+        page.fill("#caixa", "1.57"); page.fill("#prepFull", "1.30")
+        page.click("#addProd")
+        prod = page.evaluate("db.products[0]")
+        icms = 21.6 * 0.18
+        pc = (21.6 - icms) * 0.0925
+        assert prod["purchase"] == pytest.approx(21.6) and prod["kitQtd"] == 36
+        assert prod["cmvdre"] == pytest.approx(21.6 + 1.57 + 1.30 - icms - pc, abs=0.02)
+        page.click("#prodBody tr:has-text('CX36WIREOBRA58A5') >> text=Editar")
+        assert page.input_value("#kitQtd") == "36" and "36 unidades" in page.inner_text("#kitInfo")
+        assert erros == []
+        browser.close()
