@@ -107,18 +107,18 @@ td.n,th.n{text-align:right}tr.tot td{font-weight:700;background:#f8fafc}.link.de
 <section class="page" id="prod"><div class="card"><h2 id="prodTitulo">Produtos e Custos por Vigência</h2>
 <div class="fgrid">
 <label>SKU<input id="sku"></label><label>Produto<input id="pname"></label><label class="curto">Vigência<input type="date" id="vig"></label><label>Compra/NF<input type="number" step=".01" id="purchase"></label><label>IPI<input type="number" step=".01" id="ipi"></label>
-<label>Pago adicional<input type="number" step=".01" id="outside"></label><label>Fulfillment / embalagem (por venda)<input type="number" step=".01" id="pack"></label><label>Outros<input type="number" step=".01" id="other"></label><label>CMV Financeiro<input type="number" step=".01" id="cmvf" placeholder="calculado se vazio"></label><label>Créd. ICMS<input type="number" step=".01" id="icmscred"></label>
-<label>Créd. PIS<input type="number" step=".01" id="piscred"></label><label>Créd. COFINS<input type="number" step=".01" id="cofcred"></label><label>CMV DRE<input type="number" step=".01" id="cmvdre" placeholder="calculado se vazio"></label>
+<label>Pago adicional (por fora)<input type="number" step=".01" id="outside"></label><label>Caixa de papelão (un.)<input type="number" step=".01" id="caixa"></label><label>Preparo + envio ao Full (un.)<input type="number" step=".01" id="prepFull"></label><label>Outros custos (un.)<input type="number" step=".01" id="other"></label><label>Fulfillment / embalagem (por venda)<input type="number" step=".01" id="pack"></label>
+<label>CMV Financeiro<input type="number" step=".01" id="cmvf" placeholder="calculado se vazio"></label><label>Créd. ICMS<input type="number" step=".01" id="icmscred"></label><label>Créd. PIS<input type="number" step=".01" id="piscred"></label><label>Créd. COFINS<input type="number" step=".01" id="cofcred"></label><label>CMV DRE<input type="number" step=".01" id="cmvdre" placeholder="calculado se vazio"></label>
 <div class="fbtn"><button class="primary" id="addProd">Salvar vigência</button><button class="btn gray" id="cancelProd" style="display:none">Cancelar</button></div>
 </div>
-<p class="mut">CMV Financeiro e CMV DRE ficam separados. O valor pago adicional não gera crédito fiscal automaticamente. Deixe CMV DRE e CMV Financeiro em branco para o sistema calcular: CMV DRE = Compra/NF + IPI + outros − créditos; CMV Financeiro = CMV DRE + pago adicional. Fulfillment / embalagem é despesa de venda: não entra no CMV e é descontado em cada unidade vendida.</p>
+<p class="mut">CMV Financeiro e CMV DRE ficam separados. O valor pago adicional não gera crédito fiscal automaticamente. Deixe CMV DRE e CMV Financeiro em branco para o sistema calcular: CMV DRE = Compra/NF + IPI + caixa de papelão + preparo e envio ao Full + outros − créditos; CMV Financeiro = CMV DRE + pago adicional. Caixa, preparo e envio ao Full deixam o produto pronto para vender: entram no custo, sem crédito. Fulfillment / embalagem (por venda) é despesa de venda: não entra no CMV e é descontado em cada unidade vendida.</p>
 <details class="calc" open><summary>Créditos calculados automaticamente (ICMS, PIS e COFINS)</summary><div class="actions" style="margin-top:8px">
 <label>Alíquota ICMS %<input type="number" step=".01" id="icmspct" placeholder="ex.: 12"></label><label>Redução da base %<input type="number" step=".01" id="icmsred" placeholder="ex.: 26,67"></label><label>Carga efetiva<input id="icmscarga" disabled placeholder="—"></label>
 <label>PIS %<input type="number" step=".01" id="pisPct"></label><label>COFINS %<input type="number" step=".01" id="cofPct"></label><button class="btn gray" id="calcCred">Recalcular créditos</button></div>
-<p class="mut">Os créditos são preenchidos sozinhos enquanto você digita. Base: Compra/NF (+ IPI); se Compra/NF estiver vazia, usa CMV Financeiro − pago adicional (o que é pago por fora não está na nota). ICMS = base × carga efetiva; PIS e COFINS = (base − ICMS) × alíquota. Se você digitar um crédito à mão, ele é mantido. Se a nota já informa a carga (ex.: 8,8%), digite 8,8 na alíquota e deixe a redução em branco.</p></details>
+<p class="mut">Os créditos são preenchidos sozinhos enquanto você digita. Base: Compra/NF (+ IPI); se Compra/NF estiver vazia, usa CMV Financeiro − pago adicional − caixa de papelão − preparo e envio ao Full (o que não está na nota do produto). ICMS = base × carga efetiva; PIS e COFINS = (base − ICMS) × alíquota. Se você digitar um crédito à mão, ele é mantido. Se a nota já informa a carga (ex.: 8,8%), digite 8,8 na alíquota e deixe a redução em branco.</p></details>
 <div id="prodMsg"></div></div>
 <div class="card"><div class="actions" style="margin-bottom:10px"><label>Buscar<input id="prodSearch" placeholder="SKU ou nome"></label><button class="btn gray" id="prodCsv">Exportar CSV</button></div>
-<div class="scroll"><table><thead><tr><th>SKU</th><th>Produto</th><th>Vigência</th><th class="n">Compra/NF</th><th class="n">Adicional</th><th class="n">CMV Financeiro</th><th class="n">Créd. ICMS</th><th class="n">Créd. PIS</th><th class="n">Créd. COFINS</th><th class="n">CMV DRE</th><th></th></tr></thead><tbody id="prodBody"></tbody></table></div></div></section>
+<div class="scroll"><table><thead><tr><th>SKU</th><th>Produto</th><th>Vigência</th><th class="n">Compra/NF</th><th class="n">Adicional</th><th class="n">Caixa + preparo Full</th><th class="n">Fulfillment</th><th class="n">CMV Financeiro</th><th class="n">Créd. ICMS</th><th class="n">Créd. PIS</th><th class="n">Créd. COFINS</th><th class="n">CMV DRE</th><th></th></tr></thead><tbody id="prodBody"></tbody></table></div></div></section>
 
 <section class="page" id="rent"><div class="card"><h2>Rentabilidade por Produto</h2>
 <p>Venda − impostos (ICMS, DIFAL, PIS, COFINS) − comissões/tarifas do canal − frete (CT-e da venda) − CMV DRE vigente na data da venda.</p>
@@ -496,9 +496,9 @@ function classificarCte(d){
 }
 
 // ------------------------------------------------------------------ custos, canais e vendas
-function calcProduto(p){p=Object.assign({},p);for(let f of ['purchase','ipi','outside','pack','other','icms','pis','cof'])p[f]=Number(p[f])||0;
+function calcProduto(p){p=Object.assign({},p);for(let f of ['purchase','ipi','outside','pack','other','caixa','prep','icms','pis','cof'])p[f]=Number(p[f])||0;
  p.cmvdreManual=Number(p.cmvdreManual)||0;p.cmvfManual=Number(p.cmvfManual)||0;
- p.cmvdre=p.cmvdreManual||(p.cmvfManual?p.cmvfManual-p.outside-p.icms-p.pis-p.cof:p.purchase+p.ipi+p.other-p.icms-p.pis-p.cof);
+ p.cmvdre=p.cmvdreManual||(p.cmvfManual?p.cmvfManual-p.outside-p.icms-p.pis-p.cof:p.purchase+p.ipi+p.caixa+p.prep+p.other-p.icms-p.pis-p.cof);
  p.cmvf=p.cmvfManual||(p.cmvdre+p.outside);return p}
 function produtoVigente(sku,dt){sku=String(sku||'').trim().toUpperCase();
  let c=db.products.filter(p=>String(p.sku).trim().toUpperCase()===sku).sort((a,b)=>String(a.vig).localeCompare(String(b.vig)));
@@ -742,7 +742,7 @@ function renderProducts(){
  if(!$('#pisPct').value)aliquotasPadrao();
  let f=($('#prodSearch').value||'').toLowerCase(),lista=db.products.map((p,i)=>[p,i]).filter(([p])=>!f||(p.sku+' '+p.name).toLowerCase().includes(f))
   .sort((a,b)=>(a[0].sku+a[0].vig).localeCompare(b[0].sku+b[0].vig));
- $('#prodBody').innerHTML=lista.map(([p,i])=>`<tr class="${i===prodEditando?'editando':''}"><td><b>${esc(p.sku)}</b></td><td>${esc(p.name)}</td><td>${esc(p.vig||'—')}</td><td class="n">${brl(p.purchase)}</td><td class="n">${brl(p.outside)}</td><td class="n"><b>${brl(p.cmvf)}</b></td><td class="n">${brl(p.icms)}</td><td class="n">${brl(p.pis)}</td><td class="n">${brl(p.cof)}</td><td class="n"><b>${brl(p.cmvdre)}</b></td><td><button class="btn sm" onclick="editProd(${i})">Editar</button> <button class="btn sm red" onclick="delProd(${i})">Excluir</button></td></tr>`).join('')||'<tr><td colspan="11" class="mut">Nenhum produto. Cadastre acima ou use o botão em Rentabilidade para trazer os SKUs vendidos.</td></tr>'}
+ $('#prodBody').innerHTML=lista.map(([p,i])=>`<tr class="${i===prodEditando?'editando':''}"><td><b>${esc(p.sku)}</b></td><td>${esc(p.name)}</td><td>${esc(p.vig||'—')}</td><td class="n">${brl(p.purchase)}</td><td class="n">${brl(p.outside)}</td><td class="n">${brl(p.caixa+p.prep)}</td><td class="n">${brl(p.pack)}</td><td class="n"><b>${brl(p.cmvf)}</b></td><td class="n">${brl(p.icms)}</td><td class="n">${brl(p.pis)}</td><td class="n">${brl(p.cof)}</td><td class="n"><b>${brl(p.cmvdre)}</b></td><td><button class="btn sm" onclick="editProd(${i})">Editar</button> <button class="btn sm red" onclick="delProd(${i})">Excluir</button></td></tr>`).join('')||'<tr><td colspan="13" class="mut">Nenhum produto. Cadastre acima ou use o botão em Rentabilidade para trazer os SKUs vendidos.</td></tr>'}
 function renderRent(m){
  let {vendas}=derivar(),per=$('#rentPeriod').value,ch=$('#rentChannel').value,g=$('#rentGroup').value,y=m.slice(0,4);
  let V=vendas.filter(x=>(per==='m'?x.m===m:x.m.startsWith(y)&&x.m<=m)&&(!ch||x.canal===ch));
@@ -968,27 +968,27 @@ const cargaIcms=()=>num('#icmspct')*(1-num('#icmsred')/100);
 ['#icmspct','#icmsred'].forEach(id=>$(id).oninput=()=>{$('#icmscarga').value=(num('#icmspct')?cargaIcms().toLocaleString('pt-BR',{maximumFractionDigits:4})+'%':'')});
 const CRED=['#icmscred','#piscred','#cofcred'];
 function baseCompra(){let nf=num('#purchase'),ipi=num('#ipi');
- if(!nf&&num('#cmvf'))nf=Math.max(num('#cmvf')-num('#outside')-ipi,0);return {nf,ipi}}
+ if(!nf&&num('#cmvf'))nf=Math.max(num('#cmvf')-num('#outside')-num('#caixa')-num('#prepFull')-ipi,0);return {nf,ipi}}
 function autoCred(forcar){let {nf,ipi}=baseCompra();if(!nf&&!forcar)return;
  let icms=nf*cargaIcms()/100,b=Math.max(nf+(db.config.ipi?ipi:0)-(db.config.exCred?icms:0),0);
  let v={'#icmscred':icms,'#piscred':b*num('#pisPct')/100,'#cofcred':b*num('#cofPct')/100};
  for(let f of CRED)if(forcar||!$(f).dataset.manual){$(f).value=v[f].toFixed(2);delete $(f).dataset.manual}}
 CRED.forEach(f=>$(f).addEventListener('input',()=>{$(f).dataset.manual='1'}));
-['#purchase','#ipi','#cmvf','#outside','#pack','#other','#icmspct','#icmsred','#pisPct','#cofPct'].forEach(f=>$(f).addEventListener('input',()=>autoCred(false)));
+['#purchase','#ipi','#cmvf','#outside','#caixa','#prepFull','#icmspct','#icmsred','#pisPct','#cofPct'].forEach(f=>$(f).addEventListener('input',()=>autoCred(false)));
 function aliquotasPadrao(){$('#pisPct').value=db.config.pis;$('#cofPct').value=db.config.cofins}
 $('#calcCred').onclick=()=>autoCred(true);
 let prodEditando=-1;
-const CAMPOS_PROD=['#sku','#pname','#vig','#purchase','#ipi','#icmspct','#icmsred','#icmscarga','#outside','#pack','#other','#cmvf','#icmscred','#piscred','#cofcred','#cmvdre'];
+const CAMPOS_PROD=['#sku','#pname','#vig','#purchase','#ipi','#icmspct','#icmsred','#icmscarga','#outside','#caixa','#prepFull','#pack','#other','#cmvf','#icmscred','#piscred','#cofcred','#cmvdre'];
 function limparProd(){CAMPOS_PROD.forEach(s=>$(s).value='');CRED.forEach(f=>delete $(f).dataset.manual);aliquotasPadrao();prodEditando=-1;$('#addProd').textContent='Salvar vigência';$('#cancelProd').style.display='none';$('#prodTitulo').textContent='Produtos e Custos por Vigência'}
 $('#cancelProd').onclick=()=>{limparProd();renderProducts()};
 $('#addProd').onclick=()=>{let sku=$('#sku').value.trim();if(!sku)return alert('Informe o SKU.');
  if(CRED.every(f=>!num(f)))autoCred(false);
- let p=calcProduto({sku,name:$('#pname').value.trim()||sku,vig:$('#vig').value,purchase:num('#purchase'),ipi:num('#ipi'),outside:num('#outside'),pack:num('#pack'),other:num('#other'),icms:num('#icmscred'),pis:num('#piscred'),cof:num('#cofcred'),aliq:num('#icmspct'),red:num('#icmsred'),pisPct:num('#pisPct'),cofPct:num('#cofPct'),cmvdreManual:num('#cmvdre'),cmvfManual:num('#cmvf')});
+ let p=calcProduto({sku,name:$('#pname').value.trim()||sku,vig:$('#vig').value,purchase:num('#purchase'),ipi:num('#ipi'),outside:num('#outside'),caixa:num('#caixa'),prep:num('#prepFull'),pack:num('#pack'),other:num('#other'),icms:num('#icmscred'),pis:num('#piscred'),cof:num('#cofcred'),aliq:num('#icmspct'),red:num('#icmsred'),pisPct:num('#pisPct'),cofPct:num('#cofPct'),cmvdreManual:num('#cmvdre'),cmvfManual:num('#cmvf')});
  let i=prodEditando>=0?prodEditando:db.products.findIndex(x=>x.sku===p.sku&&(x.vig||'')===(p.vig||''));if(i>=0)db.products[i]=p;else db.products.push(p);
  $('#prodMsg').innerHTML=`<div class="note">${prodEditando>=0?'Alterado':'Salvo'}: <b>${esc(sku)}</b> • CMV DRE ${brl(p.cmvdre)} • CMV Financeiro ${brl(p.cmvf)}</div>`;
  limparProd();changed()};
 window.editProd=i=>{let p=db.products[i];prodEditando=i;$('#addProd').textContent='Salvar alterações';$('#cancelProd').style.display='';$('#prodTitulo').textContent='Editando: '+p.sku+(p.vig?' (vigência '+p.vig+')':'');$('#prodMsg').innerHTML='';$('#cmvdre').value=p.cmvdreManual||'';$('#cmvf').value=p.cmvfManual||'';$('#icmspct').value=p.aliq||'';$('#icmsred').value=p.red||'';$('#icmspct').oninput();$('#pisPct').value=p.pisPct||db.config.pis;$('#cofPct').value=p.cofPct||db.config.cofins;CRED.forEach(f=>delete $(f).dataset.manual);$('#sku').value=p.sku;$('#pname').value=p.name;$('#vig').value=p.vig||'';
- for(let [s,f] of [['#purchase','purchase'],['#ipi','ipi'],['#outside','outside'],['#pack','pack'],['#other','other'],['#icmscred','icms'],['#piscred','pis'],['#cofcred','cof']])$(s).value=p[f]||'';
+ for(let [s,f] of [['#purchase','purchase'],['#ipi','ipi'],['#outside','outside'],['#caixa','caixa'],['#prepFull','prep'],['#pack','pack'],['#other','other'],['#icmscred','icms'],['#piscred','pis'],['#cofcred','cof']])$(s).value=p[f]||'';
  renderProducts();window.scrollTo({top:0,behavior:'smooth'})};
 window.delProd=i=>{if(confirm('Excluir esta vigência?')){db.products.splice(i,1);if(prodEditando>=0)limparProd();changed()}};
 $('#prodSearch').oninput=renderProducts;
@@ -1131,8 +1131,8 @@ $('#cpMesCsv').onclick=()=>csv('creditos_nf_compra.csv',['Competência','Notas d
  (window._cpMes||[]).map(r=>[rotulo(r.m),r.docs,r.vc,r.bpc,r.icms,r.pis,r.cof,r.icms+r.pis+r.cof,r.oDocs,r.oVc,r.oCred,r.icms+r.pis+r.cof+r.oCred]));
 for(let pre of ['cte'])$('#'+pre+'MesCsv').onclick=()=>csv((pre==='cp'?'creditos_nf_compra':'creditos_cte')+'.csv',['Competência','Documentos','Valor','Base PIS/COFINS','Crédito ICMS','Crédito PIS','Crédito COFINS','Total'],
  (window['_'+pre+'Mes']||[]).map(r=>[rotulo(r.m),r.docs,r.vc,r.bpc,r.icms,r.pis,r.cof,r.icms+r.pis+r.cof]));
-$('#prodCsv').onclick=()=>csv('produtos.csv',['SKU','Produto','Vigência','Compra/NF','IPI','Pago adicional','Embalagem','Outros','Créd. ICMS','Créd. PIS','Créd. COFINS','CMV DRE','CMV Financeiro'],
- db.products.map(p=>[p.sku,p.name,p.vig,p.purchase,p.ipi,p.outside,p.pack,p.other,p.icms,p.pis,p.cof,p.cmvdre,p.cmvf]));
+$('#prodCsv').onclick=()=>csv('produtos.csv',['SKU','Produto','Vigência','Compra/NF','IPI','Pago adicional','Caixa de papelão','Preparo + envio Full','Fulfillment por venda','Outros','Créd. ICMS','Créd. PIS','Créd. COFINS','CMV DRE','CMV Financeiro'],
+ db.products.map(p=>[p.sku,p.name,p.vig,p.purchase,p.ipi,p.outside,p.caixa,p.prep,p.pack,p.other,p.icms,p.pis,p.cof,p.cmvdre,p.cmvf]));
 
 // backup
 $('#bkDown').onclick=()=>baixar(`kemmax_backup_${new Date().toISOString().slice(0,10)}.json`,JSON.stringify(db),'application/json');

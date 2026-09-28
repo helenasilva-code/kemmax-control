@@ -759,3 +759,31 @@ def test_html_fulfillment(tmp_path):
         assert "R$ 9,00" in page.inner_text("#rentBody").replace("\xa0", " ")
         assert erros == []
         browser.close()
+
+
+def test_html_custos_full():
+    chromium = glob.glob("/opt/pw-browsers/chromium*/chrome-linux*/chrome")
+    with sync_api.sync_playwright() as p:
+        browser = p.chromium.launch(executable_path=chromium[0] if chromium else None)
+        page = browser.new_page()
+        erros = []
+        page.on("pageerror", lambda e: erros.append(str(e)))
+        page.goto("file://" + HTML)
+        page.wait_for_function("window.document.querySelector('#month').options.length>0")
+        page.click("#nav button[data-p=prod]")
+        page.fill("#sku", "EXA4"); page.fill("#purchase", "300"); page.fill("#icmspct", "8.8")
+        page.fill("#caixa", "4.50"); page.fill("#prepFull", "3.20"); page.fill("#pack", "0.90")
+        # caixa e preparo não mudam os créditos (base = nota)
+        assert page.input_value("#icmscred") == "26.40"
+        page.click("#addProd")
+        prod = page.evaluate("db.products[0]")
+        creditos = prod["icms"] + prod["pis"] + prod["cof"]
+        assert prod["cmvdre"] == pytest.approx(300 + 4.5 + 3.2 - creditos)
+        assert prod["cmvf"] == pytest.approx(prod["cmvdre"])
+        assert "R$ 7,70" in page.inner_text("#prodBody").replace("\xa0", " ")
+
+        # só o total pago (CMV Financeiro): caixa e preparo saem da base dos créditos
+        page.fill("#sku", "Y"); page.fill("#cmvf", "307.70"); page.fill("#caixa", "4.50"); page.fill("#prepFull", "3.20"); page.fill("#icmspct", "8.8")
+        assert page.input_value("#icmscred") == "26.40"
+        assert erros == []
+        browser.close()
