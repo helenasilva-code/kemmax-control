@@ -236,6 +236,7 @@ def test_html_reducao_base_e_difal(tmp_path):
         assert "SP→SP" in compra_l and "OK" in compra_l
 
         page.click("text=Produtos e Custos")
+        page.click("text=Calcular os créditos pelo ICMS %")
         page.fill("#purchase", "100")
         page.fill("#icmspct", "12")
         page.fill("#icmsred", "26.67")
@@ -642,5 +643,47 @@ def test_html_resultados_e_excel(tmp_path):
         dre = {r[0]: r for r in wb["DRE"].iter_rows(values_only=True)}
         assert dre["= Receita líquida"][8] == pytest.approx(1190.64, abs=0.01)
         assert wb["Créditos compras"]["E8"].value == pytest.approx(180)   # julho, crédito ICMS
+        assert erros == []
+        browser.close()
+
+
+def test_html_editar_produto(tmp_path):
+    chromium = glob.glob("/opt/pw-browsers/chromium*/chrome-linux*/chrome")
+    with sync_api.sync_playwright() as p:
+        browser = p.chromium.launch(executable_path=chromium[0] if chromium else None)
+        page = browser.new_page()
+        erros = []
+        page.on("pageerror", lambda e: erros.append(str(e)))
+        page.on("dialog", lambda d: d.accept())
+        page.goto("file://" + HTML)
+        page.wait_for_function("window.document.querySelector('#month').options.length>0")
+        page.click("#nav button[data-p=prod]")
+        for sku, compra in [("A1", "10"), ("B2", "20")]:
+            page.fill("#sku", sku); page.fill("#purchase", compra); page.click("#addProd")
+        assert page.evaluate("db.products.length") == 2
+
+        # editar B2: troca vigência e preço; continua sendo 1 produto
+        page.click("#prodBody tr:has-text('B2') >> text=Editar")
+        assert page.input_value("#sku") == "B2" and page.inner_text("#addProd") == "Salvar alterações"
+        assert "Editando: B2" in page.inner_text("#prodTitulo")
+        page.fill("#vig", "2026-09-01"); page.fill("#purchase", "25"); page.fill("#outside", "5")
+        page.click("#addProd")
+        prods = page.evaluate("db.products.map(p=>[p.sku,p.vig,p.cmvdre,p.cmvf])")
+        assert prods == [["A1", "", 10, 10], ["B2", "2026-09-01", 25, 30]]
+        assert page.inner_text("#addProd") == "Salvar vigência" and "Alterado: B2" in page.inner_text("#prodMsg")
+
+        # CMV digitado vale mais que o calculado
+        page.click("#prodBody tr:has-text('A1') >> text=Editar")
+        page.fill("#cmvdre", "12.5"); page.fill("#cmvf", "14")
+        page.click("#addProd")
+        assert page.evaluate("db.products.find(p=>p.sku==='A1').cmvdre") == 12.5
+        assert page.evaluate("db.products.find(p=>p.sku==='A1').cmvf") == 14
+
+        # cancelar edição não altera nada
+        page.click("#prodBody tr:has-text('A1') >> text=Editar")
+        page.fill("#purchase", "999")
+        page.click("#cancelProd")
+        assert page.evaluate("db.products.find(p=>p.sku==='A1').purchase") == 10
+        assert page.input_value("#sku") == ""
         assert erros == []
         browser.close()

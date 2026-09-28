@@ -8,6 +8,8 @@ aside{position:fixed;inset:0 auto 0 0;width:235px;background:var(--d);color:whit
 .brand{font-size:21px;font-weight:700;padding:4px 10px 18px}.brand small{display:block;font-size:11px;font-weight:400;opacity:.7;margin-top:4px}
 nav button{display:block;width:100%;text-align:left;border:0;background:transparent;color:#dbeafa;padding:10px 12px;border-radius:8px;cursor:pointer;margin:2px 0;font-size:14px}
 nav button.active,nav button:hover{background:#ffffff18;color:white}.navsec{font-size:10px;text-transform:uppercase;letter-spacing:.08em;opacity:.55;margin:14px 12px 4px}
+.fgrid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px 16px;align-items:end;max-width:1100px}.fgrid input{min-width:0;width:100%}.fgrid .curto input{max-width:140px}.fbtn{display:flex;gap:8px}.fbtn button{white-space:nowrap}.calc{margin-top:6px}.calc summary{cursor:pointer;color:var(--b);font-size:13px}tr.editando td{background:#fff7e8}.btn.sm{padding:5px 10px;font-size:12px}
+@media(max-width:1000px){.fgrid{grid-template-columns:1fr 1fr}}
 .passos{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.passo{border:1px solid var(--bd);border-radius:10px;padding:12px;display:flex;gap:10px;align-items:flex-start}.passo .ic{font-size:20px;line-height:1}.passo b{display:block;margin-bottom:3px}.big b{font-size:26px}
 @media(max-width:1000px){.passos{grid-template-columns:1fr}}
 main{margin-left:235px;padding:24px}.top{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:18px}
@@ -102,21 +104,20 @@ td.n,th.n{text-align:right}tr.tot td{font-weight:700;background:#f8fafc}.link.de
 <div class="card"><h3>Histórico de importações</h3><div class="scroll"><table><thead><tr><th>Data</th><th>Arquivo</th><th class="n">XML lidos</th><th class="n">Novos</th><th class="n">Repetidos</th><th class="n">Cancelamentos</th><th class="n">Erros</th><th></th></tr></thead><tbody id="importsBody"></tbody></table></div></div>
 <div class="card"><h3>Lixeira</h3><p class="mut">Documentos que você excluiu. Não entram nos cálculos e não voltam ao reimportar o ZIP. "Restaurar" traz de volta; "Apagar definitivamente" libera o espaço, mas a nota continua sendo ignorada nas próximas importações.</p><div class="actions" style="margin-bottom:10px"><button class="btn gray" id="lixRestTodos">Restaurar tudo</button><button class="btn red" id="lixApagarTodos">Apagar definitivamente tudo</button><button class="btn gray" id="lixLiberar">Parar de ignorar os apagados</button></div><div class="scroll" style="max-height:360px"><table><thead><tr><th>Data</th><th>Tipo</th><th>Número</th><th>Parceiro</th><th class="n">Valor</th><th>Motivo</th><th>Excluída em</th><th></th></tr></thead><tbody id="lixBody"></tbody></table></div></div></section>
 
-<section class="page" id="prod"><div class="card"><h2>Produtos e Custos por Vigência</h2>
-<div class="actions">
-<label>SKU<input id="sku"></label><label>Produto<input id="pname"></label><label>Vigência (a partir de)<input type="date" id="vig"></label>
-<label>Compra/NF (un.)<input type="number" step=".01" id="purchase"></label><label>IPI R$ (un.)<input type="number" step=".01" id="ipi"></label>
-<label>Alíquota ICMS %<input type="number" step=".01" id="icmspct" placeholder="ex.: 12"></label><label>Redução da base %<input type="number" step=".01" id="icmsred" placeholder="ex.: 26,67"></label><label>Carga efetiva<input id="icmscarga" disabled placeholder="—"></label>
-<label>Pago adicional (por fora)<input type="number" step=".01" id="outside"></label><label>Embalagem<input type="number" step=".01" id="pack"></label>
-<label>Outros<input type="number" step=".01" id="other"></label>
-<label>Créd. ICMS<input type="number" step=".01" id="icmscred"></label><label>Créd. PIS<input type="number" step=".01" id="piscred"></label>
-<label>Créd. COFINS<input type="number" step=".01" id="cofcred"></label>
-<button class="btn gray" id="calcCred">Calcular créditos</button>
-<button class="primary" id="addProd">Salvar vigência</button></div>
-<p class="mut"><b>CMV DRE</b> = Compra/NF + IPI + embalagem + outros − créditos (ICMS, PIS, COFINS). <b>CMV Financeiro</b> = CMV DRE + pago adicional. O pago adicional não gera crédito. "Calcular créditos" usa a carga efetiva do ICMS = alíquota × (1 − redução da base) e as alíquotas de PIS/COFINS (base = NF + IPI − ICMS). Se a nota já informa a carga (ex.: 8,8%), digite 8,8 na alíquota e deixe a redução em branco. A venda usa o custo da vigência válida na data da venda.</p>
+<section class="page" id="prod"><div class="card"><h2 id="prodTitulo">Produtos e Custos por Vigência</h2>
+<div class="fgrid">
+<label>SKU<input id="sku"></label><label>Produto<input id="pname"></label><label class="curto">Vigência<input type="date" id="vig"></label><label>Compra/NF<input type="number" step=".01" id="purchase"></label><label>IPI<input type="number" step=".01" id="ipi"></label>
+<label>Pago adicional<input type="number" step=".01" id="outside"></label><label>Embalagem<input type="number" step=".01" id="pack"></label><label>Outros<input type="number" step=".01" id="other"></label><label>CMV Financeiro<input type="number" step=".01" id="cmvf" placeholder="calculado se vazio"></label><label>Créd. ICMS<input type="number" step=".01" id="icmscred"></label>
+<label>Créd. PIS<input type="number" step=".01" id="piscred"></label><label>Créd. COFINS<input type="number" step=".01" id="cofcred"></label><label>CMV DRE<input type="number" step=".01" id="cmvdre" placeholder="calculado se vazio"></label>
+<div class="fbtn"><button class="primary" id="addProd">Salvar vigência</button><button class="btn gray" id="cancelProd" style="display:none">Cancelar</button></div>
+</div>
+<p class="mut">CMV Financeiro e CMV DRE ficam separados. O valor pago adicional não gera crédito fiscal automaticamente. Deixe CMV DRE e CMV Financeiro em branco para o sistema calcular: CMV DRE = Compra/NF + IPI + embalagem + outros − créditos; CMV Financeiro = CMV DRE + pago adicional.</p>
+<details class="calc"><summary>Calcular os créditos pelo ICMS % (inclui redução de base)</summary><div class="actions" style="margin-top:8px">
+<label>Alíquota ICMS %<input type="number" step=".01" id="icmspct" placeholder="ex.: 12"></label><label>Redução da base %<input type="number" step=".01" id="icmsred" placeholder="ex.: 26,67"></label><label>Carga efetiva<input id="icmscarga" disabled placeholder="—"></label><button class="btn gray" id="calcCred">Calcular créditos</button></div>
+<p class="mut">Preenche Créd. ICMS, PIS e COFINS com base em Compra/NF e IPI. Se a nota já informa a carga (ex.: 8,8%), digite 8,8 na alíquota e deixe a redução em branco.</p></details>
 <div id="prodMsg"></div></div>
 <div class="card"><div class="actions" style="margin-bottom:10px"><label>Buscar<input id="prodSearch" placeholder="SKU ou nome"></label><button class="btn gray" id="prodCsv">Exportar CSV</button></div>
-<div class="scroll"><table><thead><tr><th>SKU</th><th>Produto</th><th>Vigência</th><th class="n">Compra/NF</th><th class="n">IPI</th><th class="n">Adicional</th><th class="n">Embalagem</th><th class="n">Outros</th><th class="n">Créd. ICMS</th><th class="n">Créd. PIS</th><th class="n">Créd. COFINS</th><th class="n">CMV DRE</th><th class="n">CMV Financeiro</th><th></th></tr></thead><tbody id="prodBody"></tbody></table></div></div></section>
+<div class="scroll"><table><thead><tr><th>SKU</th><th>Produto</th><th>Vigência</th><th class="n">Compra/NF</th><th class="n">Adicional</th><th class="n">CMV Financeiro</th><th class="n">Créd. ICMS</th><th class="n">Créd. PIS</th><th class="n">Créd. COFINS</th><th class="n">CMV DRE</th><th></th></tr></thead><tbody id="prodBody"></tbody></table></div></div></section>
 
 <section class="page" id="rent"><div class="card"><h2>Rentabilidade por Produto</h2>
 <p>Venda − impostos (ICMS, DIFAL, PIS, COFINS) − comissões/tarifas do canal − frete (CT-e da venda) − CMV DRE vigente na data da venda.</p>
@@ -495,7 +496,8 @@ function classificarCte(d){
 
 // ------------------------------------------------------------------ custos, canais e vendas
 function calcProduto(p){p=Object.assign({},p);for(let f of ['purchase','ipi','outside','pack','other','icms','pis','cof'])p[f]=Number(p[f])||0;
- p.cmvdre=p.purchase+p.ipi+p.pack+p.other-p.icms-p.pis-p.cof;p.cmvf=p.cmvdre+p.outside;return p}
+ p.cmvdreManual=Number(p.cmvdreManual)||0;p.cmvfManual=Number(p.cmvfManual)||0;
+ p.cmvdre=p.cmvdreManual||(p.purchase+p.ipi+p.pack+p.other-p.icms-p.pis-p.cof);p.cmvf=p.cmvfManual||(p.cmvdre+p.outside);return p}
 function produtoVigente(sku,dt){sku=String(sku||'').trim().toUpperCase();
  let c=db.products.filter(p=>String(p.sku).trim().toUpperCase()===sku).sort((a,b)=>String(a.vig).localeCompare(String(b.vig)));
  if(!c.length)return null;let v=c.filter(p=>!p.vig||p.vig<=dt);return v.length?v.at(-1):c[0]}
@@ -737,7 +739,7 @@ function renderImports(){
 function renderProducts(){
  let f=($('#prodSearch').value||'').toLowerCase(),lista=db.products.map((p,i)=>[p,i]).filter(([p])=>!f||(p.sku+' '+p.name).toLowerCase().includes(f))
   .sort((a,b)=>(a[0].sku+a[0].vig).localeCompare(b[0].sku+b[0].vig));
- $('#prodBody').innerHTML=lista.map(([p,i])=>`<tr><td><b>${esc(p.sku)}</b></td><td>${esc(p.name)}</td><td>${esc(p.vig||'—')}</td><td class="n">${brl(p.purchase)}</td><td class="n">${brl(p.ipi)}</td><td class="n">${brl(p.outside)}</td><td class="n">${brl(p.pack)}</td><td class="n">${brl(p.other)}</td><td class="n">${brl(p.icms)}</td><td class="n">${brl(p.pis)}</td><td class="n">${brl(p.cof)}</td><td class="n"><b>${brl(p.cmvdre)}</b></td><td class="n"><b>${brl(p.cmvf)}</b></td><td><button class="link" onclick="editProd(${i})">Editar</button> <button class="link" onclick="delProd(${i})">Excluir</button></td></tr>`).join('')||'<tr><td colspan="14" class="mut">Nenhum produto. Cadastre acima ou use o botão em Rentabilidade para trazer os SKUs vendidos.</td></tr>'}
+ $('#prodBody').innerHTML=lista.map(([p,i])=>`<tr class="${i===prodEditando?'editando':''}"><td><b>${esc(p.sku)}</b></td><td>${esc(p.name)}</td><td>${esc(p.vig||'—')}</td><td class="n">${brl(p.purchase)}</td><td class="n">${brl(p.outside)}</td><td class="n"><b>${brl(p.cmvf)}</b></td><td class="n">${brl(p.icms)}</td><td class="n">${brl(p.pis)}</td><td class="n">${brl(p.cof)}</td><td class="n"><b>${brl(p.cmvdre)}</b></td><td><button class="btn sm" onclick="editProd(${i})">Editar</button> <button class="btn sm red" onclick="delProd(${i})">Excluir</button></td></tr>`).join('')||'<tr><td colspan="11" class="mut">Nenhum produto. Cadastre acima ou use o botão em Rentabilidade para trazer os SKUs vendidos.</td></tr>'}
 function renderRent(m){
  let {vendas}=derivar(),per=$('#rentPeriod').value,ch=$('#rentChannel').value,g=$('#rentGroup').value,y=m.slice(0,4);
  let V=vendas.filter(x=>(per==='m'?x.m===m:x.m.startsWith(y)&&x.m<=m)&&(!ch||x.canal===ch));
@@ -963,15 +965,19 @@ const cargaIcms=()=>num('#icmspct')*(1-num('#icmsred')/100);
 ['#icmspct','#icmsred'].forEach(id=>$(id).oninput=()=>{$('#icmscarga').value=(num('#icmspct')?cargaIcms().toLocaleString('pt-BR',{maximumFractionDigits:4})+'%':'')});
 $('#calcCred').onclick=()=>{let nf=num('#purchase'),ipi=num('#ipi'),icms=nf*cargaIcms()/100,b=Math.max(nf+(db.config.ipi?ipi:0)-(db.config.exCred?icms:0),0);
  $('#icmscred').value=icms.toFixed(2);$('#piscred').value=(b*db.config.pis/100).toFixed(2);$('#cofcred').value=(b*db.config.cofins/100).toFixed(2)};
+let prodEditando=-1;
+const CAMPOS_PROD=['#sku','#pname','#vig','#purchase','#ipi','#icmspct','#icmsred','#icmscarga','#outside','#pack','#other','#cmvf','#icmscred','#piscred','#cofcred','#cmvdre'];
+function limparProd(){CAMPOS_PROD.forEach(s=>$(s).value='');prodEditando=-1;$('#addProd').textContent='Salvar vigência';$('#cancelProd').style.display='none';$('#prodTitulo').textContent='Produtos e Custos por Vigência'}
+$('#cancelProd').onclick=()=>{limparProd();renderProducts()};
 $('#addProd').onclick=()=>{let sku=$('#sku').value.trim();if(!sku)return alert('Informe o SKU.');
- let p=calcProduto({sku,name:$('#pname').value.trim()||sku,vig:$('#vig').value,purchase:num('#purchase'),ipi:num('#ipi'),outside:num('#outside'),pack:num('#pack'),other:num('#other'),icms:num('#icmscred'),pis:num('#piscred'),cof:num('#cofcred'),aliq:num('#icmspct'),red:num('#icmsred')});
- let i=db.products.findIndex(x=>x.sku===p.sku&&(x.vig||'')===(p.vig||''));if(i>=0)db.products[i]=p;else db.products.push(p);
- $('#prodMsg').innerHTML=`<div class="note">Salvo: <b>${esc(sku)}</b> • CMV DRE ${brl(p.cmvdre)} • CMV Financeiro ${brl(p.cmvf)}</div>`;
- ['#sku','#pname','#vig','#purchase','#ipi','#icmspct','#icmsred','#icmscarga','#outside','#pack','#other','#icmscred','#piscred','#cofcred'].forEach(s=>$(s).value='');changed()};
-window.editProd=i=>{let p=db.products[i];$('#icmspct').value=p.aliq||'';$('#icmsred').value=p.red||'';$('#icmspct').oninput();$('#sku').value=p.sku;$('#pname').value=p.name;$('#vig').value=p.vig||'';
+ let p=calcProduto({sku,name:$('#pname').value.trim()||sku,vig:$('#vig').value,purchase:num('#purchase'),ipi:num('#ipi'),outside:num('#outside'),pack:num('#pack'),other:num('#other'),icms:num('#icmscred'),pis:num('#piscred'),cof:num('#cofcred'),aliq:num('#icmspct'),red:num('#icmsred'),cmvdreManual:num('#cmvdre'),cmvfManual:num('#cmvf')});
+ let i=prodEditando>=0?prodEditando:db.products.findIndex(x=>x.sku===p.sku&&(x.vig||'')===(p.vig||''));if(i>=0)db.products[i]=p;else db.products.push(p);
+ $('#prodMsg').innerHTML=`<div class="note">${prodEditando>=0?'Alterado':'Salvo'}: <b>${esc(sku)}</b> • CMV DRE ${brl(p.cmvdre)} • CMV Financeiro ${brl(p.cmvf)}</div>`;
+ limparProd();changed()};
+window.editProd=i=>{let p=db.products[i];prodEditando=i;$('#addProd').textContent='Salvar alterações';$('#cancelProd').style.display='';$('#prodTitulo').textContent='Editando: '+p.sku+(p.vig?' (vigência '+p.vig+')':'');$('#prodMsg').innerHTML='';$('#cmvdre').value=p.cmvdreManual||'';$('#cmvf').value=p.cmvfManual||'';$('#icmspct').value=p.aliq||'';$('#icmsred').value=p.red||'';$('#icmspct').oninput();$('#sku').value=p.sku;$('#pname').value=p.name;$('#vig').value=p.vig||'';
  for(let [s,f] of [['#purchase','purchase'],['#ipi','ipi'],['#outside','outside'],['#pack','pack'],['#other','other'],['#icmscred','icms'],['#piscred','pis'],['#cofcred','cof']])$(s).value=p[f]||'';
- window.scrollTo({top:0,behavior:'smooth'})};
-window.delProd=i=>{if(confirm('Excluir esta vigência?')){db.products.splice(i,1);changed()}};
+ renderProducts();window.scrollTo({top:0,behavior:'smooth'})};
+window.delProd=i=>{if(confirm('Excluir esta vigência?')){db.products.splice(i,1);if(prodEditando>=0)limparProd();changed()}};
 $('#prodSearch').oninput=renderProducts;
 $('#addMap').onclick=()=>{let name=$('#mapName').value.trim(),cnpj=digits($('#mapCnpj').value);if(!name||cnpj.length!==14)return alert('Informe o nome do canal e o CNPJ (14 dígitos).');
  db.channelMap=db.channelMap.filter(x=>digits(x.cnpj)!==cnpj);db.channelMap.push({name,cnpj});$('#mapName').value=$('#mapCnpj').value='';changed()};
