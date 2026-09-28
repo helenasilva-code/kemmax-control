@@ -800,17 +800,22 @@ def test_html_kit():
         page.wait_for_function("window.document.querySelector('#month').options.length>0")
         page.click("#nav button[data-p=prod]")
         page.fill("#sku", "CX36WIREOBRA58A5")
-        page.fill("#kitUnit", "0.60"); page.fill("#kitFora", "0.10"); page.fill("#kitQtd", "36")
-        assert page.input_value("#purchase") == "21.60" and page.input_value("#outside") == "3.60"
+        # caixa de compra com 50 fios: NF 21,58 + IPI 3,25% + 8,55 por fora; kit vendido com 36 fios
+        page.fill("#kitUnit", "21.58"); page.fill("#kitIpi", "3.25"); page.fill("#kitFora", "8.55")
+        page.fill("#kitCompra", "50"); page.fill("#kitQtd", "36")
+        assert page.input_value("#purchase") == "15.54" and page.input_value("#ipi") == "0.50"
+        assert page.input_value("#outside") == "6.16"
         page.fill("#icmspct", "18")
         page.fill("#caixa", "1.57"); page.fill("#prepFull", "1.30")
         page.click("#addProd")
         prod = page.evaluate("db.products[0]")
-        icms = 21.6 * 0.18
-        pc = (21.6 - icms) * 0.0925
-        assert prod["purchase"] == pytest.approx(21.6) and prod["kitQtd"] == 36
-        assert prod["cmvdre"] == pytest.approx(21.6 + 1.57 + 1.30 - icms - pc, abs=0.02)
-        assert prod["cmvf"] == pytest.approx(prod["cmvdre"] + 3.60)   # por fora só no financeiro, sem crédito
+        nf, ipi = 15.54, 0.50
+        icms = nf * 0.18
+        pc = (nf + ipi - icms) * 0.0925
+        assert prod["purchase"] == pytest.approx(nf) and prod["kitQtd"] == 36 and prod["kitCompra"] == 50
+        assert prod["cmvdre"] == pytest.approx(nf + ipi + 1.57 + 1.30 - icms - pc, abs=0.02)
+        assert prod["cmvdre"] == pytest.approx(14.89, abs=0.02)
+        assert prod["cmvf"] == pytest.approx(prod["cmvdre"] + 6.16)   # por fora só no financeiro, sem crédito
         page.click("#prodBody tr:has-text('CX36WIREOBRA58A5') >> text=Editar")
         assert page.input_value("#kitQtd") == "36" and "36 unidades" in page.inner_text("#kitInfo")
         assert erros == []
