@@ -7,7 +7,9 @@
 aside{position:fixed;inset:0 auto 0 0;width:235px;background:var(--d);color:white;padding:20px 12px;overflow:auto}
 .brand{font-size:21px;font-weight:700;padding:4px 10px 18px}.brand small{display:block;font-size:11px;font-weight:400;opacity:.7;margin-top:4px}
 nav button{display:block;width:100%;text-align:left;border:0;background:transparent;color:#dbeafa;padding:10px 12px;border-radius:8px;cursor:pointer;margin:2px 0;font-size:14px}
-nav button.active,nav button:hover{background:#ffffff18;color:white}
+nav button.active,nav button:hover{background:#ffffff18;color:white}.navsec{font-size:10px;text-transform:uppercase;letter-spacing:.08em;opacity:.55;margin:14px 12px 4px}
+.passos{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.passo{border:1px solid var(--bd);border-radius:10px;padding:12px;display:flex;gap:10px;align-items:flex-start}.passo .ic{font-size:20px;line-height:1}.passo b{display:block;margin-bottom:3px}.big b{font-size:26px}
+@media(max-width:1000px){.passos{grid-template-columns:1fr}}
 main{margin-left:235px;padding:24px}.top{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:18px}
 h1{font-size:24px;margin:0}h2{margin:0 0 14px}h3{margin:0 0 10px}.mut{color:var(--mut);font-size:12px}
 .card{background:white;border:1px solid var(--bd);border-radius:12px;padding:16px;box-shadow:0 1px 2px #17324d0d;margin-bottom:16px}
@@ -27,18 +29,45 @@ td.n,th.n{text-align:right}tr.tot td{font-weight:700;background:#f8fafc}.link.de
 @media(max-width:1000px){aside{position:static;width:auto}main{margin:0;padding:16px}.grid,.two{grid-template-columns:1fr 1fr}}
 </style></head><body>
 <aside><div class="brand">kemmax <small>Gestão • Lucro Real • V5</small></div><nav id="nav">
-<button class="active" data-p="dash">Dashboard</button><button data-p="import">Importações</button>
-<button data-p="prod">Produtos e Custos</button><button data-p="rent">Rentabilidade por Produto</button>
-<button data-p="channels">Canais e Tarifas</button><button data-p="cte">CT-e e Créditos</button>
-<button data-p="vendas">NF de Venda</button><button data-p="compras">NF de Compra</button><button data-p="apur">Apuração Impostos</button>
-<button data-p="dre">DRE Mensal</button><button data-p="finance">Financeiro / Extrato</button><button data-p="ap">Contas a Pagar</button><button data-p="ar">Contas a Receber</button>
-<button data-p="audit">Auditoria</button><button data-p="config">Configuração e Backup</button>
+<div class="navsec">Resultados</div>
+<button class="active" data-p="res">Resultados</button><button data-p="dash">Dashboard</button>
+<div class="navsec">Lançar dados</div>
+<button data-p="import">Importações</button><button data-p="prod">Produtos e Custos</button><button data-p="channels">Canais e Tarifas</button>
+<button data-p="finance">Financeiro / Extrato</button><button data-p="ap">Contas a Pagar</button><button data-p="ar">Contas a Receber</button>
+<div class="navsec">Detalhes</div>
+<button data-p="vendas">NF de Venda</button><button data-p="compras">NF de Compra</button><button data-p="cte">CT-e e Créditos</button>
+<button data-p="apur">Apuração Impostos</button><button data-p="dre">DRE Mensal</button><button data-p="rent">Rentabilidade por Produto</button>
+<button data-p="audit">Auditoria</button>
+<div class="navsec">Configuração</div>
+<button data-p="config">Configuração e Backup</button>
 </nav></aside>
 <main>
 <div class="top"><div><h1 id="title">Dashboard</h1><div class="mut">Base gerencial separando DRE, CMV financeiro e fluxo de caixa. Tudo fica neste computador.</div></div>
 <label>Competência<select id="month"></select></label></div>
 
-<section class="page active" id="dash">
+<section class="page active" id="res">
+<div class="card"><h2>Seus resultados em 3 passos</h2><div class="passos" id="resPassos"></div></div>
+<div class="grid">
+<div class="card kpi big"><span>Faturamento do mês</span><b id="rFat">R$ 0,00</b></div>
+<div class="card kpi big"><span>Lucro líquido do mês (DRE)</span><b id="rLiq">R$ 0,00</b><span id="rMarg"></span></div>
+<div class="card kpi big"><span>Impostos a recolher (ICMS + PIS + COFINS)</span><b id="rImp">R$ 0,00</b></div>
+<div class="card kpi big"><span>Créditos do mês (ICMS + PIS + COFINS)</span><b id="rCred">R$ 0,00</b></div>
+</div>
+<div class="grid">
+<div class="card kpi"><span>Compras do mês</span><b id="rCompras">R$ 0,00</b></div>
+<div class="card kpi"><span>DIFAL + FCP do mês</span><b id="rDifal">R$ 0,00</b></div>
+<div class="card kpi"><span>Resultado de caixa (após pagamentos por fora)</span><b id="rCaixa">R$ 0,00</b></div>
+<div class="card kpi"><span>Contas vencidas (a pagar)</span><b id="rVencidas">R$ 0,00</b></div>
+</div>
+<div class="card"><div class="actions" style="justify-content:space-between"><h3 style="margin:0">Mês a mês</h3><button class="primary" id="resXlsx">Baixar relatório em Excel</button></div>
+<div class="scroll" style="margin-top:10px"><table><thead><tr><th>Mês</th><th class="n">Faturamento</th><th class="n">Compras</th><th class="n">Créd. ICMS</th><th class="n">Créd. PIS</th><th class="n">Créd. COFINS</th><th class="n">ICMS a recolher</th><th class="n">PIS a recolher</th><th class="n">COFINS a recolher</th><th class="n">DIFAL + FCP</th><th class="n">Lucro líquido</th><th class="n">Margem</th><th class="n">Resultado caixa</th></tr></thead><tbody id="resMeses"></tbody></table></div>
+<p class="mut">Créditos = compras + CT-e + devoluções + créditos extras. O Excel traz também DRE completa, apuração, rentabilidade por produto e créditos detalhados.</p></div>
+<div class="two"><div class="card"><h3>Produtos que mais dão lucro (mês)</h3><table><thead><tr><th>SKU</th><th>Produto</th><th class="n">Venda</th><th class="n">Lucro</th><th class="n">Margem</th></tr></thead><tbody id="resTop"></tbody></table></div>
+<div class="card"><h3>Produtos com prejuízo (mês)</h3><table><thead><tr><th>SKU</th><th>Produto</th><th class="n">Venda</th><th class="n">Resultado</th><th class="n">Margem</th></tr></thead><tbody id="resPior"></tbody></table></div></div>
+<div class="card"><h3>Precisa de atenção</h3><div id="resAlertas"></div></div>
+</section>
+
+<section class="page" id="dash">
 <div id="dashAlert"></div>
 <div class="grid">
 <div class="card kpi"><span>Faturamento</span><b id="kFat">R$ 0,00</b></div>
@@ -645,6 +674,42 @@ function mesesDisponiveis(){let a=new Set();Object.values(db.docs).forEach(d=>d.
 function initMonths(){let sel=$('#month'),cur=sel.dataset.want||sel.value,ms=mesesDisponiveis();delete sel.dataset.want;
  sel.innerHTML=ms.map(m=>`<option value="${m}">${rotulo(m)}</option>`).join('');sel.value=ms.includes(cur)?cur:(ms.at(-1)||'')}
 
+function vaiPara(p){let b=$(`#nav button[data-p="${p}"]`);if(b)b.click()}
+window.vaiPara=vaiPara;
+function resumoMeses(ate){
+ let {lancs}=derivar(),ap=apuracao(ate),lin=n=>(ap.linhas.find(l=>l[0]===n)||[0,[]])[1];
+ let rI=lin('ICMS — A recolher'),rP=lin('PIS — A recolher'),rC=lin('COFINS — A recolher');
+ return ap.ms.map((m,i)=>{let L=lancs.filter(x=>x.m===m),d=dreMes(m),ex=extrasMes(m),cr=L.filter(x=>x.dir==='Entrada');
+  return {m,fat:d.rec,compras:soma(L.filter(x=>COMPRAS.includes(x.nat)),'vc'),cIcms:soma(cr,'icmsC')+ex.icms,cPis:soma(cr,'pisC')+ex.pis,cCof:soma(cr,'cofC')+ex.cof,
+   icms:rI[i]||0,pis:rP[i]||0,cof:rC[i]||0,difal:d.difal,liq:d.liq,marg:d.rec?d.liq/d.rec:0,caixa:d.caixa}})}
+function renderRes(m){
+ let docs=Object.keys(db.docs).length,{vendas}=derivar(),V=vendas.filter(x=>x.m===m),semCusto=new Set(vendas.filter(v=>!v.temCusto).map(v=>v.sku)).size;
+ let passo=(ok,titulo,txt,btn,p)=>`<div class="passo"><span class="ic">${ok?'✅':'⚠️'}</span><div><b>${titulo}</b><span class="mut">${txt}</span><br><button class="link" onclick="vaiPara('${p}')">${btn}</button></div></div>`;
+ $('#resPassos').innerHTML=passo(docs>0,'1. Importar os XMLs',docs?`${docs.toLocaleString('pt-BR')} documentos importados.`:'Envie os ZIPs de NF-e e CT-e.','Ir para Importações','import')+
+  passo(docs>0&&!semCusto,'2. Cadastrar os custos',semCusto?`${semCusto} produto(s) vendido(s) sem custo: o lucro deles fica errado.`:docs?'Todos os produtos vendidos têm custo.':'Cadastre o custo de cada SKU.','Ir para Produtos e Custos','prod')+
+  passo(docs>0&&!semCusto,'3. Ver os resultados','Os números abaixo e o Excel são atualizados na hora.','Ver DRE completa','dre');
+ let R=resumoMeses(m),a=R.at(-1)||{};
+ $('#rFat').textContent=brl(a.fat);$('#rLiq').textContent=brl(a.liq);$('#rLiq').className=(a.liq||0)<0?'bad':'ok';$('#rMarg').textContent=a.fat?'margem líquida '+pct(a.marg):'';
+ $('#rImp').textContent=brl((a.icms||0)+(a.pis||0)+(a.cof||0));$('#rCred').textContent=brl((a.cIcms||0)+(a.cPis||0)+(a.cCof||0));
+ $('#rCompras').textContent=brl(a.compras);$('#rDifal').textContent=brl(a.difal);$('#rCaixa').textContent=brl(a.caixa);
+ let hj=hoje(),venc=Object.values(db.ap).filter(x=>x.status==='aberto'&&x.venc<hj);$('#rVencidas').textContent=brl(soma(venc,'valor'));$('#rVencidas').className=venc.length?'bad':'ok';
+ let tot=f=>soma(R,f),linha=(r,rot)=>`<td>${rot}</td><td class="n">${brl(r.fat)}</td><td class="n">${brl(r.compras)}</td><td class="n">${brl(r.cIcms)}</td><td class="n">${brl(r.cPis)}</td><td class="n">${brl(r.cCof)}</td><td class="n">${brl(r.icms)}</td><td class="n">${brl(r.pis)}</td><td class="n">${brl(r.cof)}</td><td class="n">${brl(r.difal)}</td><td class="n${cls(r.liq)}"><b>${brl(r.liq)}</b></td><td class="n${cls(r.marg)}">${r.fat?pct(r.marg):'—'}</td><td class="n${cls(r.caixa)}">${brl(r.caixa)}</td>`;
+ let T=Object.fromEntries(['fat','compras','cIcms','cPis','cCof','icms','pis','cof','difal','liq','caixa'].map(f=>[f,tot(f)]));T.marg=T.fat?T.liq/T.fat:0;
+ $('#resMeses').innerHTML=R.map(r=>`<tr class="${r.m===m?'sub':''}">${linha(r,rotulo(r.m))}</tr>`).join('')+`<tr class="tot">${linha(T,'Total no ano')}</tr>`;
+ let g={};V.forEach(v=>{let x=g[v.sku]=g[v.sku]||{sku:v.sku,nome:v.nome,rec:0,res:0,temCusto:true};x.rec+=v.rec;x.res+=v.res;x.temCusto=x.temCusto&&v.temCusto});
+ let P=Object.values(g).filter(x=>x.temCusto),lin=x=>`<tr><td><b>${esc(x.sku)}</b></td><td>${esc(x.nome)}</td><td class="n">${brl(x.rec)}</td><td class="n${cls(x.res)}"><b>${brl(x.res)}</b></td><td class="n${cls(x.res)}">${pct(x.rec?x.res/x.rec:0)}</td></tr>`;
+ $('#resTop').innerHTML=P.filter(x=>x.res>0).sort((a,b)=>b.res-a.res).slice(0,5).map(lin).join('')||'<tr><td colspan="5" class="mut">Sem vendas com custo cadastrado no mês.</td></tr>';
+ $('#resPior').innerHTML=P.filter(x=>x.res<0).sort((a,b)=>a.res-b.res).slice(0,5).map(lin).join('')||'<tr><td colspan="5" class="ok">Nenhum produto com prejuízo no mês.</td></tr>';
+ let L=derivar().lancs.filter(x=>x.m===m),al=[];
+ if(!db.config.cnpjs.length)al.push(['bad','Informe o CNPJ da empresa','config']);
+ if(semCusto)al.push(['bad',`${semCusto} produto(s) vendido(s) sem custo cadastrado`,'prod']);
+ if(!db.channels.length&&V.length)al.push(['warn','Cadastre as comissões dos marketplaces (Canais e Tarifas)','channels']);
+ let rev=L.filter(x=>x.obs.includes('revisar')).length;if(rev)al.push(['warn',`${rev} item(ns) de nota com CFOP para revisar`,'audit']);
+ let acima=L.filter(x=>x.t==='NF-e'&&x.nat==='Venda').map(conferirReducao).filter(c=>c&&c.status==='Destacado acima');if(acima.length)al.push(['bad',`${acima.length} venda(s) de máquina com ICMS destacado acima da carga reduzida (${brl(soma(acima,'dif'))} a mais)`,'audit']);
+ let semCat=Object.values(db.bank).filter(t=>t.dt.startsWith(m)&&!t.cat).length;if(semCat)al.push(['warn',`${semCat} lançamento(s) do extrato sem categoria`,'finance']);
+ if(venc.length)al.push(['bad',`${venc.length} conta(s) a pagar vencida(s): ${brl(soma(venc,'valor'))}`,'ap']);
+ $('#resAlertas').innerHTML=al.length?al.map(([c,t,p])=>`<div class="note ${c==='bad'?'red':'yel'}" style="margin-bottom:6px">${esc(t)} — <button class="link" onclick="vaiPara('${p}')">resolver</button></div>`).join(''):'<div class="note">Tudo em ordem nesta competência.</div>';
+ window._res=R}
 function renderDash(m){
  let d=dreMes(m),{lancs}=derivar(),L=lancs.filter(x=>x.m===m),compras=L.filter(x=>COMPRAS.includes(x.nat)),ct=L.filter(x=>x.t==='CT-e');
  $('#kFat').textContent=brl(d.rec);$('#kBuy').textContent=brl(soma(compras,'vc'));$('#kCmv').textContent=brl(d.cmv);
@@ -886,9 +951,9 @@ function renderConfig(){let c=db.config;
  let s=sugerirCnpj().slice(0,5);$('#cnpjSuggest').innerHTML=s.length?'<span class="mut">CNPJs que mais aparecem nos XMLs:</span> '+s.map(([x,n,q])=>`<span class="pill">${esc(x)} — ${esc(n)} (${q})</span>`).join(' '):''}
 function render(){
  if(!db)return;initMonths();let m=$('#month').value;if(!m)return;
- let pg=($('#nav button.active')||{}).dataset?.p||'dash';
+ let pg=($('#nav button.active')||{}).dataset?.p||'res';
  renderDash(m);
- ({import:renderImports,prod:renderProducts,rent:()=>renderRent(m),channels:renderChannels,cte:()=>renderCte(m),vendas:()=>renderVendas(m),compras:()=>renderCompras(m),
+ ({res:()=>renderRes(m),import:renderImports,prod:renderProducts,rent:()=>renderRent(m),channels:renderChannels,cte:()=>renderCte(m),vendas:()=>renderVendas(m),compras:()=>renderCompras(m),
    apur:()=>renderApur(m),dre:()=>renderDre(m),finance:()=>renderFin(m),ap:()=>renderAp(m),ar:()=>renderAr(m),audit:()=>renderAudit(m),config:renderConfig}[pg]||(()=>{}))();
 }
 
@@ -981,12 +1046,52 @@ $('#fonteDre').onchange=()=>{db.config.fonteDre=$('#fonteDre').value;changed()};
 ['#apSit','#apPer'].forEach(x=>$(x).onchange=render);$('#apBusca').oninput=render;
 $('#cpgCsv').onclick=()=>csv('contas_a_pagar.csv',['Vencimento','Fornecedor','Descrição','Categoria no relatório','Documento','Valor','Situação','Pago em','Valor pago','No extrato','Categoria','Entra na DRE'],
  (window._apRows||[]).map(a=>[a.venc,a.forn,a.desc,a.catRel,a.doc,a.valor,situacaoAp(a),a.dpag,a.vpago,a.extrato?'Sim':'Não',a.cat,CAT_DRE.includes(a.cat)?'Sim':'Não']));
+$('#resXlsx').onclick=()=>baixar(`kemmax_resultados_${$('#month').value}.xlsx`,relatorioExcel(),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 $('#closeMonth').onclick=()=>{let m=$('#month').value;if(!db.closed.includes(m))db.closed.push(m);changed()};
 $('#openMonth').onclick=()=>{db.closed=db.closed.filter(x=>x!==$('#month').value);changed()};
 $('#month').onchange=()=>{let m=$('#month').value;$('#expMonth').value=$('#exMonth').value=m;render()};
 $$('#nav button').forEach(b=>b.onclick=()=>{$$('#nav button').forEach(x=>x.classList.remove('active'));b.classList.add('active');
  $$('.page').forEach(x=>x.classList.remove('active'));$('#'+b.dataset.p).classList.add('active');$('#title').textContent=b.textContent;render()});
 
+// Excel .xlsx gerado aqui mesmo (zip sem compressão)
+const CRC_T=(()=>{let t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+const crc32=b=>{let c=0xFFFFFFFF;for(let i=0;i<b.length;i++)c=CRC_T[(c^b[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0};
+function zipar(arquivos){let enc=new TextEncoder(),partes=[],central=[],off=0;
+ for(let [nome,txt] of arquivos){let n=enc.encode(nome),d=enc.encode(txt),crc=crc32(d),h=new DataView(new ArrayBuffer(30));
+  h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(6,0x800,true);h.setUint16(12,0x21,true);h.setUint32(14,crc,true);h.setUint32(18,d.length,true);h.setUint32(22,d.length,true);h.setUint16(26,n.length,true);
+  partes.push(new Uint8Array(h.buffer),n,d);
+  let c=new DataView(new ArrayBuffer(46));c.setUint32(0,0x02014b50,true);c.setUint16(4,20,true);c.setUint16(6,20,true);c.setUint16(8,0x800,true);c.setUint16(14,0x21,true);c.setUint32(16,crc,true);c.setUint32(20,d.length,true);c.setUint32(24,d.length,true);c.setUint16(28,n.length,true);c.setUint32(42,off,true);
+  central.push(new Uint8Array(c.buffer),n);off+=30+n.length+d.length}
+ let tam=central.reduce((a,x)=>a+x.length,0),e=new DataView(new ArrayBuffer(22));e.setUint32(0,0x06054b50,true);e.setUint16(8,arquivos.length,true);e.setUint16(10,arquivos.length,true);e.setUint32(12,tam,true);e.setUint32(16,off,true);
+ return new Blob([...partes,...central,new Uint8Array(e.buffer)],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})}
+function xlsx(abas){ // abas: [[nome,[linhas]]] — números viram células numéricas com 2 casas
+ let x=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,'');
+ let col=i=>{let s='';i++;while(i){let r=(i-1)%26;s=String.fromCharCode(65+r)+s;i=Math.floor((i-1)/26)}return s};
+ let folhas=abas.map(([,linhas])=>'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>'+
+  linhas.map((l,r)=>`<row r="${r+1}">`+l.map((v,c)=>{let ref=col(c)+(r+1);return typeof v==='number'&&isFinite(v)?`<c r="${ref}" s="${r===0?0:1}"><v>${Math.round(v*100)/100}</v></c>`:`<c r="${ref}" t="inlineStr" s="${r===0?2:0}"><is><t xml:space="preserve">${x(v)}</t></is></c>`}).join('')+'</row>').join('')+'</sheetData></worksheet>');
+ let nomes=abas.map(([n],i)=>x(String(n).replace(/[\\/?*\[\]:]/g,' ').slice(0,31))||'Aba'+(i+1));
+ let arq=[['[Content_Types].xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'+abas.map((a,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')+'</Types>'],
+  ['_rels/.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'],
+  ['xl/workbook.xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'+nomes.map((n,i)=>`<sheet name="${n}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join('')+'</sheets></workbook>'],
+  ['xl/_rels/workbook.xml.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+abas.map((a,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join('')+`<Relationship Id="rId${abas.length+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`],
+  ['xl/styles.xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="4" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>'],
+  ...folhas.map((f,i)=>[`xl/worksheets/sheet${i+1}.xml`,f])];
+ return zipar(arq)}
+function relatorioExcel(){
+ let m=$('#month').value,R=resumoMeses(m),d=linhasDre(m),a=apuracao(m),{vendas,lancs}=derivar(),y=m.slice(0,4);
+ let tab=t=>[['Linha',...t.ms.map(rotulo),'Total'],...t.linhas.map(([r,v,tp])=>[r,...v,tp==='p'?v[0]:tp==='u'?v.at(-1):v.reduce((s,z)=>s+z,0)])];
+ let g={};vendas.filter(v=>v.m.startsWith(y)&&v.m<=m).forEach(v=>{let x=g[v.sku+'|'+v.canal]=g[v.sku+'|'+v.canal]||{sku:v.sku,nome:v.nome,canal:v.canal,q:0,rec:0,imp:0,fees:0,frete:0,cmv:0,res:0,adic:0};
+  for(let f of ['q','rec','imp','fees','frete','cmv','res','adic'])x[f]+=v[f]});
+ let cred=f=>mesesAno(m).map(mm=>{let L=lancs.filter(x=>x.m===mm&&f(x));return [rotulo(mm),new Set(L.map(x=>x.k)).size,soma(L,'vc'),soma(L,'bpc'),soma(L,'icmsC'),soma(L,'pisC'),soma(L,'cofC'),soma(L,credito)]});
+ let cab=['Mês','Documentos','Valor','Base PIS/COFINS','Crédito ICMS','Crédito PIS','Crédito COFINS','Total'];
+ return xlsx([
+  ['Resumo mês a mês',[['Mês','Faturamento','Compras','Créd. ICMS','Créd. PIS','Créd. COFINS','ICMS a recolher','PIS a recolher','COFINS a recolher','DIFAL + FCP','Lucro líquido','Margem %','Resultado caixa'],
+   ...R.map(r=>[rotulo(r.m),r.fat,r.compras,r.cIcms,r.cPis,r.cCof,r.icms,r.pis,r.cof,r.difal,r.liq,r.marg*100,r.caixa])]],
+  ['DRE',tab(d)],['Apuração ICMS PIS COFINS',tab(a)],
+  ['Rentabilidade (ano)',[['SKU','Produto','Canal','Qtd','Venda','Impostos','Comissão/tarifas','Frete','CMV DRE','Resultado DRE','Margem %','Pago adicional','Resultado financeiro'],
+   ...Object.values(g).sort((p,q)=>q.res-p.res).map(x=>[x.sku,x.nome,x.canal,x.q,x.rec,x.imp,x.fees,x.frete,x.cmv,x.res,x.rec?x.res/x.rec*100:0,x.adic,x.res-x.adic])]],
+  ['Créditos compras',[cab,...cred(x=>entradaNfe(x)&&COMPRAS.includes(x.nat))]],
+  ['Créditos CT-e',[cab,...cred(x=>x.t==='CT-e')]]])}
 // exportação CSV (abre no Excel)
 function baixar(nome,conteudo,tipo){let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([conteudo],{type:tipo}));a.download=nome;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 const cel=v=>typeof v==='number'?v.toFixed(2).replace('.',','):'"'+String(v??'').replace(/"/g,'""')+'"';

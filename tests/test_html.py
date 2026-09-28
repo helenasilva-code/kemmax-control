@@ -592,3 +592,55 @@ def test_html_contas_a_receber(tmp_path):
         assert "-R$ 900,00" in fluxo and "R$ 100,00" in fluxo and "-R$ 6.900,00" in fluxo
         assert erros == []
         browser.close()
+
+
+def test_html_resultados_e_excel(tmp_path):
+    import openpyxl
+    chromium = glob.glob("/opt/pw-browsers/chromium*/chrome-linux*/chrome")
+    with sync_api.sync_playwright() as p:
+        browser = p.chromium.launch(executable_path=chromium[0] if chromium else None)
+        page = browser.new_page(accept_downloads=True)
+        erros = []
+        page.on("pageerror", lambda e: erros.append(str(e)))
+        page.on("dialog", lambda d: d.accept())
+        page.goto("file://" + HTML)
+        page.wait_for_function("window.document.querySelector('#month').options.length>0")
+        # tela inicial é Resultados, com os passos pendentes
+        assert page.is_visible("#res") and "Envie os ZIPs" in page.inner_text("#resPassos")
+
+        page.click("#nav button[data-p=import]")
+        page.set_input_files("#files", _zip(tmp_path))
+        page.click("#registerImport")
+        page.wait_for_selector("text=Importação concluída.")
+        page.click("#nav button[data-p=channels]")
+        page.fill("#chName", "Mercado Livre"); page.fill("#chPct", "12"); page.fill("#chFixed", "1")
+        page.click("#addChannel")
+        page.click("#nav button[data-p=prod]")
+        page.fill("#sku", "P1"); page.fill("#purchase", "50"); page.fill("#outside", "10")
+        page.click("#addProd")
+
+        page.click("#nav button[data-p=res]")
+        page.select_option("#month", "2026-08")
+        assert _valor(page, "#rFat") == pytest.approx(2000)
+        assert "Todos os produtos vendidos têm custo" in page.inner_text("#resPassos")
+        ago = page.evaluate("window._res.find(r=>r.m==='2026-08')")
+        assert ago["icms"] == pytest.approx(360 - 72 - 12 - 180)
+        assert ago["liq"] == pytest.approx((511.89) * 0.76, abs=0.01)
+        assert "P1" in page.inner_text("#resTop")
+        assert "Resolver" not in page.inner_text("#resAlertas")
+
+        with page.expect_download() as dl:
+            page.click("#resXlsx")
+        arquivo = tmp_path / "rel.xlsx"
+        dl.value.save_as(arquivo)
+        wb = openpyxl.load_workbook(arquivo)
+        assert wb.sheetnames == ["Resumo mês a mês", "DRE", "Apuração ICMS PIS COFINS", "Rentabilidade (ano)",
+                                 "Créditos compras", "Créditos CT-e"]
+        resumo = wb["Resumo mês a mês"]
+        linha_ago = [r for r in resumo.iter_rows(values_only=True) if r[0] == "Ago/26"][0]
+        assert linha_ago[1] == pytest.approx(2000)
+        dre = {r[0]: r for r in wb["DRE"].iter_rows(values_only=True)}
+        assert dre["= Receita líquida"][8] == pytest.approx(1190.64, abs=0.01)
+        assert wb["Créditos compras"]["E8"].value == pytest.approx(180)   # julho, crédito ICMS
+        assert erros == []
+        browser.close()
