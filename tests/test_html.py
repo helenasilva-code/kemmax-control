@@ -80,6 +80,7 @@ def test_html_completo(tmp_path):
         page.fill("#sku", "P1")
         page.fill("#purchase", "50")
         page.fill("#outside", "10")
+        page.fill("#piscred", "0"); page.fill("#cofcred", "0")   # sem créditos neste cenário
         page.click("#addProd")
         assert "CMV Financeiro R$ 60,00" in page.inner_text("#prodMsg").replace("\xa0", " ")
 
@@ -236,7 +237,6 @@ def test_html_reducao_base_e_difal(tmp_path):
         assert "SP→SP" in compra_l and "OK" in compra_l
 
         page.click("text=Produtos e Custos")
-        page.click("text=Calcular os créditos pelo ICMS %")
         page.fill("#purchase", "100")
         page.fill("#icmspct", "12")
         page.fill("#icmsred", "26.67")
@@ -618,6 +618,7 @@ def test_html_resultados_e_excel(tmp_path):
         page.click("#addChannel")
         page.click("#nav button[data-p=prod]")
         page.fill("#sku", "P1"); page.fill("#purchase", "50"); page.fill("#outside", "10")
+        page.fill("#piscred", "0"); page.fill("#cofcred", "0")
         page.click("#addProd")
 
         page.click("#nav button[data-p=res]")
@@ -668,8 +669,9 @@ def test_html_editar_produto(tmp_path):
         assert "Editando: B2" in page.inner_text("#prodTitulo")
         page.fill("#vig", "2026-09-01"); page.fill("#purchase", "25"); page.fill("#outside", "5")
         page.click("#addProd")
-        prods = page.evaluate("db.products.map(p=>[p.sku,p.vig,p.cmvdre,p.cmvf])")
-        assert prods == [["A1", "", 10, 10], ["B2", "2026-09-01", 25, 30]]
+        prods = page.evaluate("db.products.map(p=>[p.sku,p.vig,Math.round(p.cmvdre*100)/100,Math.round(p.cmvf*100)/100])")
+        # créditos automáticos de PIS 1,65% + COFINS 7,6% (sem ICMS informado)
+        assert prods == [["A1", "", 9.07, 9.07], ["B2", "2026-09-01", 22.69, 27.69]]
         assert page.inner_text("#addProd") == "Salvar vigência" and "Alterado: B2" in page.inner_text("#prodMsg")
 
         # CMV digitado vale mais que o calculado
@@ -685,5 +687,44 @@ def test_html_editar_produto(tmp_path):
         page.click("#cancelProd")
         assert page.evaluate("db.products.find(p=>p.sku==='A1').purchase") == 10
         assert page.input_value("#sku") == ""
+        assert erros == []
+        browser.close()
+
+
+def test_html_creditos_automaticos():
+    chromium = glob.glob("/opt/pw-browsers/chromium*/chrome-linux*/chrome")
+    with sync_api.sync_playwright() as p:
+        browser = p.chromium.launch(executable_path=chromium[0] if chromium else None)
+        page = browser.new_page()
+        erros = []
+        page.on("pageerror", lambda e: erros.append(str(e)))
+        page.goto("file://" + HTML)
+        page.wait_for_function("window.document.querySelector('#month').options.length>0")
+        page.click("#nav button[data-p=prod]")
+        assert page.input_value("#pisPct") == "1.65" and page.input_value("#cofPct") == "7.6"
+        # caso do print: só CMV Financeiro, embalagem e ICMS 8,8%
+        page.fill("#sku", "CANTLASCONJU"); page.fill("#vig", "2026-01-01")
+        page.fill("#pack", "0.90"); page.fill("#cmvf", "227.93"); page.fill("#icmspct", "8.8")
+        base = 227.93 - 0.90
+        icms = base * 0.088
+        assert float(page.input_value("#icmscred")) == pytest.approx(icms, abs=0.01)
+        assert float(page.input_value("#piscred")) == pytest.approx((base - icms) * 0.0165, abs=0.01)
+        assert float(page.input_value("#cofcred")) == pytest.approx((base - icms) * 0.076, abs=0.01)
+        page.click("#addProd")
+        prod = page.evaluate("db.products[0]")
+        assert prod["cmvf"] == pytest.approx(227.93)
+        assert prod["cmvdre"] == pytest.approx(227.93 - prod["icms"] - prod["pis"] - prod["cof"], abs=0.001)
+        assert prod["cmvdre"] == pytest.approx(188.79, abs=0.02)
+        # formulário limpo volta com PIS/COFINS preenchidos
+        assert page.input_value("#pisPct") == "1.65"
+
+        # crédito digitado à mão é mantido; Compra/NF tem prioridade na base
+        page.fill("#sku", "X"); page.fill("#icmspct", "12")
+        page.fill("#icmscred", "5")
+        page.fill("#purchase", "100")
+        assert page.input_value("#icmscred") == "5"
+        assert float(page.input_value("#piscred")) == pytest.approx(88 * 0.0165, abs=0.01)
+        page.click("#calcCred")
+        assert page.input_value("#icmscred") == "12.00"
         assert erros == []
         browser.close()
