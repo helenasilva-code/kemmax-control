@@ -532,7 +532,7 @@ const soma=(arr,f)=>arr.reduce((a,x)=>a+(typeof f==='function'?f(x):(+x[f]||0)),
 function mesesAno(m){let [y,mm]=m.split('-');return Array.from({length:+mm},(_,i)=>`${y}-${String(i+1).padStart(2,'0')}`)}
 function rotulo(m){let [y,mm]=m.split('-');return MESES[+mm-1]+'/'+y.slice(2)}
 const CAT_DRE=['ADS / Publicidade','Pessoal e pró-labore','Despesas fixas','Serviços','Outras despesas','Receitas financeiras','Despesas financeiras'];
-const CAT_FORA=['Recebimento de vendas / marketplace','Pagamento de fornecedor (estoque)','Impostos (apurados nas notas)','Empréstimo / financiamento','Transferência entre contas / aplicação','Retirada ou aporte de sócios','Imobilizado','Ignorar'];
+const CAT_FORA=['Recebimento de vendas / marketplace','Pagamento de fornecedor (estoque)','Prep center / envio ao Full (custo de estoque)','Impostos (apurados nas notas)','Empréstimo / financiamento','Transferência entre contas / aplicação','Retirada ou aporte de sócios','Imobilizado','Ignorar'];
 const REGRAS_BANCO=[
  ['MERCADO PAGO|MERCADOPAGO|MERCADO LIVRE|MERCADOLIVRE|EBAZAR|SHOPEE|SHPS|AMAZON|MAGALU|MAGAZINE LUIZA|TIKTOK','Recebimento de vendas / marketplace','C'],
  ['MERCADO ADS|GOOGLE ADS|GOOGLE *ADS|FACEBK|FACEBOOK|META ADS|META PLATFORMS|TIKTOK ADS','ADS / Publicidade','D'],
