@@ -705,8 +705,9 @@ def test_html_creditos_automaticos():
         # caso do print: só CMV Financeiro, embalagem e ICMS 8,8%
         page.fill("#sku", "CANTLASCONJU"); page.fill("#vig", "2026-01-01")
         page.fill("#pack", "0.90"); page.fill("#cmvf", "227.93"); page.fill("#icmspct", "8.8")
-        base = 227.93 - 0.90
+        base = 227.93            # o CMV Financeiro digitado é o valor da nota
         icms = base * 0.088
+        assert page.input_value("#icmscred") == "20.06"
         assert float(page.input_value("#icmscred")) == pytest.approx(icms, abs=0.01)
         assert float(page.input_value("#piscred")) == pytest.approx((base - icms) * 0.0165, abs=0.01)
         assert float(page.input_value("#cofcred")) == pytest.approx((base - icms) * 0.076, abs=0.01)
@@ -714,7 +715,7 @@ def test_html_creditos_automaticos():
         prod = page.evaluate("db.products[0]")
         assert prod["cmvf"] == pytest.approx(227.93)
         assert prod["cmvdre"] == pytest.approx(227.93 - prod["icms"] - prod["pis"] - prod["cof"], abs=0.001)
-        assert prod["cmvdre"] == pytest.approx(188.79, abs=0.02)
+        assert prod["cmvdre"] == pytest.approx(227.93 - 20.06 - 3.43 - 15.80, abs=0.02)
         # formulário limpo volta com PIS/COFINS preenchidos
         assert page.input_value("#pisPct") == "1.65"
 

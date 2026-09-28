@@ -115,7 +115,7 @@ td.n,th.n{text-align:right}tr.tot td{font-weight:700;background:#f8fafc}.link.de
 <details class="calc" open><summary>Créditos calculados automaticamente (ICMS, PIS e COFINS)</summary><div class="actions" style="margin-top:8px">
 <label>Alíquota ICMS %<input type="number" step=".01" id="icmspct" placeholder="ex.: 12"></label><label>Redução da base %<input type="number" step=".01" id="icmsred" placeholder="ex.: 26,67"></label><label>Carga efetiva<input id="icmscarga" disabled placeholder="—"></label>
 <label>PIS %<input type="number" step=".01" id="pisPct"></label><label>COFINS %<input type="number" step=".01" id="cofPct"></label><button class="btn gray" id="calcCred">Recalcular créditos</button></div>
-<p class="mut">Os créditos são preenchidos sozinhos enquanto você digita. Base: Compra/NF (+ IPI); se Compra/NF estiver vazia, usa CMV Financeiro − pago adicional − embalagem − outros. ICMS = base × carga efetiva; PIS e COFINS = (base − ICMS) × alíquota. Se você digitar um crédito à mão, ele é mantido. Se a nota já informa a carga (ex.: 8,8%), digite 8,8 na alíquota e deixe a redução em branco.</p></details>
+<p class="mut">Os créditos são preenchidos sozinhos enquanto você digita. Base: Compra/NF (+ IPI); se Compra/NF estiver vazia, usa CMV Financeiro − pago adicional (o que é pago por fora não está na nota). ICMS = base × carga efetiva; PIS e COFINS = (base − ICMS) × alíquota. Se você digitar um crédito à mão, ele é mantido. Se a nota já informa a carga (ex.: 8,8%), digite 8,8 na alíquota e deixe a redução em branco.</p></details>
 <div id="prodMsg"></div></div>
 <div class="card"><div class="actions" style="margin-bottom:10px"><label>Buscar<input id="prodSearch" placeholder="SKU ou nome"></label><button class="btn gray" id="prodCsv">Exportar CSV</button></div>
 <div class="scroll"><table><thead><tr><th>SKU</th><th>Produto</th><th>Vigência</th><th class="n">Compra/NF</th><th class="n">Adicional</th><th class="n">CMV Financeiro</th><th class="n">Créd. ICMS</th><th class="n">Créd. PIS</th><th class="n">Créd. COFINS</th><th class="n">CMV DRE</th><th></th></tr></thead><tbody id="prodBody"></tbody></table></div></div></section>
@@ -968,7 +968,7 @@ const cargaIcms=()=>num('#icmspct')*(1-num('#icmsred')/100);
 ['#icmspct','#icmsred'].forEach(id=>$(id).oninput=()=>{$('#icmscarga').value=(num('#icmspct')?cargaIcms().toLocaleString('pt-BR',{maximumFractionDigits:4})+'%':'')});
 const CRED=['#icmscred','#piscred','#cofcred'];
 function baseCompra(){let nf=num('#purchase'),ipi=num('#ipi');
- if(!nf&&num('#cmvf'))nf=Math.max(num('#cmvf')-num('#outside')-num('#pack')-num('#other')-ipi,0);return {nf,ipi}}
+ if(!nf&&num('#cmvf'))nf=Math.max(num('#cmvf')-num('#outside')-ipi,0);return {nf,ipi}}
 function autoCred(forcar){let {nf,ipi}=baseCompra();if(!nf&&!forcar)return;
  let icms=nf*cargaIcms()/100,b=Math.max(nf+(db.config.ipi?ipi:0)-(db.config.exCred?icms:0),0);
  let v={'#icmscred':icms,'#piscred':b*num('#pisPct')/100,'#cofcred':b*num('#cofPct')/100};
