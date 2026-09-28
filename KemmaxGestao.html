@@ -51,18 +51,18 @@ td.n,th.n{text-align:right}tr.tot td{font-weight:700;background:#f8fafc}.link.de
 <div class="card"><h2>Seus resultados em 3 passos</h2><div class="passos" id="resPassos"></div></div>
 <div class="grid">
 <div class="card kpi big"><span>Faturamento do mês</span><b id="rFat">R$ 0,00</b></div>
-<div class="card kpi big"><span>Lucro líquido do mês (DRE)</span><b id="rLiq">R$ 0,00</b><span id="rMarg"></span></div>
+<div class="card kpi big"><span>Lucro líquido real do mês (com pago por fora)</span><b id="rLiq">R$ 0,00</b><span id="rMarg"></span></div>
 <div class="card kpi big"><span>Impostos a recolher (ICMS + PIS + COFINS)</span><b id="rImp">R$ 0,00</b></div>
 <div class="card kpi big"><span>Créditos do mês (ICMS + PIS + COFINS)</span><b id="rCred">R$ 0,00</b></div>
 </div>
 <div class="grid">
 <div class="card kpi"><span>Compras do mês</span><b id="rCompras">R$ 0,00</b></div>
 <div class="card kpi"><span>DIFAL + FCP do mês</span><b id="rDifal">R$ 0,00</b></div>
-<div class="card kpi"><span>Resultado de caixa (após pagamentos por fora)</span><b id="rCaixa">R$ 0,00</b></div>
+<div class="card kpi"><span>Lucro na DRE fiscal (contábil)</span><b id="rCaixa">R$ 0,00</b></div>
 <div class="card kpi"><span>Contas vencidas (a pagar)</span><b id="rVencidas">R$ 0,00</b></div>
 </div>
 <div class="card"><div class="actions" style="justify-content:space-between"><h3 style="margin:0">Mês a mês</h3><button class="primary" id="resXlsx">Baixar relatório em Excel</button></div>
-<div class="scroll" style="margin-top:10px"><table><thead><tr><th>Mês</th><th class="n">Faturamento</th><th class="n">Compras</th><th class="n">Créd. ICMS</th><th class="n">Créd. PIS</th><th class="n">Créd. COFINS</th><th class="n">ICMS a recolher</th><th class="n">PIS a recolher</th><th class="n">COFINS a recolher</th><th class="n">DIFAL + FCP</th><th class="n">Lucro líquido</th><th class="n">Margem</th><th class="n">Resultado caixa</th></tr></thead><tbody id="resMeses"></tbody></table></div>
+<div class="scroll" style="margin-top:10px"><table><thead><tr><th>Mês</th><th class="n">Faturamento</th><th class="n">Compras</th><th class="n">Créd. ICMS</th><th class="n">Créd. PIS</th><th class="n">Créd. COFINS</th><th class="n">ICMS a recolher</th><th class="n">PIS a recolher</th><th class="n">COFINS a recolher</th><th class="n">DIFAL + FCP</th><th class="n">Lucro real</th><th class="n">Margem real</th><th class="n">Lucro DRE fiscal</th></tr></thead><tbody id="resMeses"></tbody></table></div>
 <p class="mut">Créditos = compras + CT-e + devoluções + créditos extras. O Excel traz também DRE completa, apuração, rentabilidade por produto e créditos detalhados.</p></div>
 <div class="two"><div class="card"><h3>Produtos que mais dão lucro (mês)</h3><table><thead><tr><th>SKU</th><th>Produto</th><th class="n">Venda</th><th class="n">Lucro</th><th class="n">Margem</th></tr></thead><tbody id="resTop"></tbody></table></div>
 <div class="card"><h3>Produtos com prejuízo (mês)</h3><table><thead><tr><th>SKU</th><th>Produto</th><th class="n">Venda</th><th class="n">Resultado</th><th class="n">Margem</th></tr></thead><tbody id="resPior"></tbody></table></div></div>
@@ -166,7 +166,7 @@ td.n,th.n{text-align:right}tr.tot td{font-weight:700;background:#f8fafc}.link.de
 <table style="margin-top:10px"><thead><tr><th>Competência</th><th>Descrição</th><th class="n">Base</th><th class="n">PIS</th><th class="n">COFINS</th><th class="n">ICMS</th><th></th></tr></thead><tbody id="exBody"></tbody></table></div></section>
 
 <section class="page" id="dre"><div class="card"><h2>DRE Mensal</h2><p class="mut">Janeiro até a competência selecionada. IRPJ 15% + adicional 10% (acima de R$ 20 mil/mês) e CSLL 9% estimados mês a mês, sem ajustes do LALUR — estimativa gerencial, confirme com a contabilidade.</p>
-<div class="actions"><button class="btn gray" id="dreCsv">Exportar CSV</button></div></div>
+<div class="actions"><label>Visão<select id="dreVisao"><option value="gerencial">Gerencial — lucro real (CMV com pago por fora)</option><option value="fiscal">Fiscal / contábil — só o que tem nota</option></select></label><button class="btn gray" id="dreCsv">Exportar CSV</button></div><div id="dreNota" class="note" style="margin-top:10px"></div></div>
 <div class="card"><div class="scroll" style="max-height:none"><table><thead id="dreHead"></thead><tbody id="dreBody"></tbody></table></div></div></section>
 
 <section class="page" id="finance"><div class="card"><h2>Financeiro / Extrato bancário</h2>
@@ -252,7 +252,7 @@ let db=null, idb=null, saveTimer=null, versao=0, cache=null;
 const NCM_PADRAO=['8441.10.90','8440.10.90','8439.30.90','8420.10.10'].map(ncm=>({ncm,carga:8.8,cargaNNE:5.14}));
 const PARSER=2;
 const CNPJ_KEMMAX='48221981000123';
-function novoDb(){return {config:{cnpjs:[CNPJ_KEMMAX],cteBase:'integral',fonteDre:'extrato',pis:1.65,cofins:7.6,exDeb:true,exCred:true,ipi:true,st:false,ncmReducao:NCM_PADRAO.map(x=>({...x}))},
+function novoDb(){return {config:{cnpjs:[CNPJ_KEMMAX],cteBase:'integral',fonteDre:'extrato',visaoDre:'gerencial',pis:1.65,cofins:7.6,exDeb:true,exCred:true,ipi:true,st:false,ncmReducao:NCM_PADRAO.map(x=>({...x}))},
  docs:{},canceled:{},products:[],channels:[],channelMap:CANAIS_PADRAO.map(([name,cnpj])=>({name,cnpj})),
  cteOverride:{},trash:{},bank:{},bankRules:null,ap:{},ar:{},saldoConta:0,imports:[],expenses:[],extras:[],closed:[],saldos:{icms:0,pis:0,cofins:0}}}
 
@@ -663,8 +663,10 @@ function tabelaMeses(head,body,ms,linhas){
  $(head).innerHTML=`<tr><th>Linha</th>${ms.map(m=>`<th class="n">${rotulo(m)}</th>`).join('')}<th class="n">Total</th></tr>`;
  $(body).innerHTML=linhas.map(([r,vals,t,dest])=>{let tot=t==='p'?vals[0]:t==='u'?vals.at(-1):vals.reduce((a,b)=>a+b,0);
   return `<tr class="${dest||r.startsWith('=')?'sub':''}"><td>${esc(r)}</td>${vals.map(v=>`<td class="n${cls(v)}">${brl(v)}</td>`).join('')}<td class="n${cls(tot)}"><b>${brl(tot)}</b></td></tr>`}).join('')}
-function linhasDre(ate){
+function linhasDre(ate,visao){
+ visao=visao||db.config.visaoDre||'gerencial';
  let ms=mesesAno(ate),D=ms.map(dreMes),g=f=>D.map(f);
+ if(visao==='gerencial')return linhasDreGerencial(ms,D,g);
  let cats=['ADS / Publicidade','Pessoal e pró-labore','Despesas fixas','Serviços','Outras despesas'];
  return {ms,linhas:[
   ['Receita bruta de vendas',g(d=>d.rec)],['(−) Devoluções de vendas',g(d=>d.dev)],['(−) ICMS',g(d=>-d.icms)],['(−) DIFAL / FCP',g(d=>-d.difal)],
@@ -675,6 +677,17 @@ function linhasDre(ate){
   ['= Resultado antes IRPJ/CSLL',g(d=>d.lair)],['(−) CSLL 9%',g(d=>-d.csll)],['(−) IRPJ 15% + adicional 10%',g(d=>-d.irpj)],['= Lucro líquido (DRE)',g(d=>d.liq)],
   ['(−) Pago adicional (CMV Financeiro − CMV DRE)',g(d=>-d.adic)],['= Resultado financeiro (caixa)',g(d=>d.caixa)]]}}
 
+function linhasDreGerencial(ms,D,g){
+ let cats=['ADS / Publicidade','Pessoal e pró-labore','Despesas fixas','Serviços','Outras despesas'];
+ return {ms,linhas:[
+  ['Receita bruta de vendas',g(d=>d.rec)],['(−) Devoluções de vendas',g(d=>d.dev)],['(−) ICMS',g(d=>-d.icms)],['(−) DIFAL / FCP',g(d=>-d.difal)],
+  ['(−) PIS',g(d=>-d.pis)],['(−) COFINS',g(d=>-d.cof)],['= Receita líquida',g(d=>d.rl)],
+  ['(−) CMV da nota (líquido de créditos)',g(d=>-d.cmv)],['(−) Pago por fora (PF)',g(d=>-d.adic)],['(−) CMV real',g(d=>-(d.cmv+d.adic))],['= Lucro bruto real',g(d=>d.lb-d.adic)],
+  ['(−) Comissões / tarifas',g(d=>-d.fees)],['(−) Fretes de venda (CT-e, líquido de créditos)',g(d=>-d.frete)],['(−) Fulfillment / embalagem',g(d=>-d.fulf)],['= Margem de contribuição real',g(d=>d.mc-d.adic)],
+  ...cats.map((c,i)=>['(−) '+c,g(d=>-d.adm[i][1])]),['(+) Créditos extras',g(d=>d.creditosExtras)],['= Resultado operacional real',g(d=>d.op-d.adic)],
+  ['(+) Receitas financeiras',g(d=>d.recFin)],['(−) PIS/COFINS s/ receitas financeiras',g(d=>-d.pcFin)],['(−) Despesas financeiras',g(d=>-d.despFin)],
+  ['= Resultado real antes IRPJ/CSLL',g(d=>d.lair-d.adic)],['(−) CSLL 9% (sobre o lucro fiscal)',g(d=>-d.csll)],['(−) IRPJ 15% + adicional 10% (sobre o lucro fiscal)',g(d=>-d.irpj)],
+  ['= Lucro líquido real',g(d=>d.caixa)],['Lucro fiscal antes IRPJ/CSLL (base dos impostos)',g(d=>d.lair)],['Lucro líquido na DRE fiscal',g(d=>d.liq)]]}}
 function mesesDisponiveis(){let a=new Set();Object.values(db.docs).forEach(d=>d.dt&&a.add(d.dt.slice(0,7)));Object.values(db.bank||{}).forEach(t=>a.add(t.dt.slice(0,7)));Object.values(db.ap||{}).forEach(x=>a.add(x.venc.slice(0,7)));Object.values(db.ar||{}).forEach(x=>a.add(x.venc.slice(0,7)));
  let hoje=new Date(),y=hoje.getFullYear();for(let i=1;i<=hoje.getMonth()+1;i++)a.add(`${y}-${String(i).padStart(2,'0')}`);return [...a].sort()}
 function initMonths(){let sel=$('#month'),cur=sel.dataset.want||sel.value,ms=mesesDisponiveis();delete sel.dataset.want;
@@ -687,7 +700,7 @@ function resumoMeses(ate){
  let rI=lin('ICMS — A recolher'),rP=lin('PIS — A recolher'),rC=lin('COFINS — A recolher');
  return ap.ms.map((m,i)=>{let L=lancs.filter(x=>x.m===m),d=dreMes(m),ex=extrasMes(m),cr=L.filter(x=>x.dir==='Entrada');
   return {m,fat:d.rec,compras:soma(L.filter(x=>COMPRAS.includes(x.nat)),'vc'),cIcms:soma(cr,'icmsC')+ex.icms,cPis:soma(cr,'pisC')+ex.pis,cCof:soma(cr,'cofC')+ex.cof,
-   icms:rI[i]||0,pis:rP[i]||0,cof:rC[i]||0,difal:d.difal,liq:d.liq,marg:d.rec?d.liq/d.rec:0,caixa:d.caixa}})}
+   icms:rI[i]||0,pis:rP[i]||0,cof:rC[i]||0,difal:d.difal,liq:d.caixa,marg:d.rec?d.caixa/d.rec:0,caixa:d.liq}})}
 function renderRes(m){
  let docs=Object.keys(db.docs).length,{vendas}=derivar(),V=vendas.filter(x=>x.m===m),semCusto=new Set(vendas.filter(v=>!v.temCusto).map(v=>v.sku)).size;
  let passo=(ok,titulo,txt,btn,p)=>`<div class="passo"><span class="ic">${ok?'✅':'⚠️'}</span><div><b>${titulo}</b><span class="mut">${txt}</span><br><button class="link" onclick="vaiPara('${p}')">${btn}</button></div></div>`;
@@ -695,14 +708,14 @@ function renderRes(m){
   passo(docs>0&&!semCusto,'2. Cadastrar os custos',semCusto?`${semCusto} produto(s) vendido(s) sem custo: o lucro deles fica errado.`:docs?'Todos os produtos vendidos têm custo.':'Cadastre o custo de cada SKU.','Ir para Produtos e Custos','prod')+
   passo(docs>0&&!semCusto,'3. Ver os resultados','Os números abaixo e o Excel são atualizados na hora.','Ver DRE completa','dre');
  let R=resumoMeses(m),a=R.at(-1)||{};
- $('#rFat').textContent=brl(a.fat);$('#rLiq').textContent=brl(a.liq);$('#rLiq').className=(a.liq||0)<0?'bad':'ok';$('#rMarg').textContent=a.fat?'margem líquida '+pct(a.marg):'';
+ $('#rFat').textContent=brl(a.fat);$('#rLiq').textContent=brl(a.liq);$('#rLiq').className=(a.liq||0)<0?'bad':'ok';$('#rMarg').textContent=a.fat?'margem real '+pct(a.marg):'';
  $('#rImp').textContent=brl((a.icms||0)+(a.pis||0)+(a.cof||0));$('#rCred').textContent=brl((a.cIcms||0)+(a.cPis||0)+(a.cCof||0));
  $('#rCompras').textContent=brl(a.compras);$('#rDifal').textContent=brl(a.difal);$('#rCaixa').textContent=brl(a.caixa);
  let hj=hoje(),venc=Object.values(db.ap).filter(x=>x.status==='aberto'&&x.venc<hj);$('#rVencidas').textContent=brl(soma(venc,'valor'));$('#rVencidas').className=venc.length?'bad':'ok';
  let tot=f=>soma(R,f),linha=(r,rot)=>`<td>${rot}</td><td class="n">${brl(r.fat)}</td><td class="n">${brl(r.compras)}</td><td class="n">${brl(r.cIcms)}</td><td class="n">${brl(r.cPis)}</td><td class="n">${brl(r.cCof)}</td><td class="n">${brl(r.icms)}</td><td class="n">${brl(r.pis)}</td><td class="n">${brl(r.cof)}</td><td class="n">${brl(r.difal)}</td><td class="n${cls(r.liq)}"><b>${brl(r.liq)}</b></td><td class="n${cls(r.marg)}">${r.fat?pct(r.marg):'—'}</td><td class="n${cls(r.caixa)}">${brl(r.caixa)}</td>`;
  let T=Object.fromEntries(['fat','compras','cIcms','cPis','cCof','icms','pis','cof','difal','liq','caixa'].map(f=>[f,tot(f)]));T.marg=T.fat?T.liq/T.fat:0;
  $('#resMeses').innerHTML=R.map(r=>`<tr class="${r.m===m?'sub':''}">${linha(r,rotulo(r.m))}</tr>`).join('')+`<tr class="tot">${linha(T,'Total no ano')}</tr>`;
- let g={};V.forEach(v=>{let x=g[v.sku]=g[v.sku]||{sku:v.sku,nome:v.nome,rec:0,res:0,temCusto:true};x.rec+=v.rec;x.res+=v.res;x.temCusto=x.temCusto&&v.temCusto});
+ let g={};V.forEach(v=>{let x=g[v.sku]=g[v.sku]||{sku:v.sku,nome:v.nome,rec:0,res:0,temCusto:true};x.rec+=v.rec;x.res+=v.resFin;x.temCusto=x.temCusto&&v.temCusto});
  let P=Object.values(g).filter(x=>x.temCusto),lin=x=>`<tr><td><b>${esc(x.sku)}</b></td><td>${esc(x.nome)}</td><td class="n">${brl(x.rec)}</td><td class="n${cls(x.res)}"><b>${brl(x.res)}</b></td><td class="n${cls(x.res)}">${pct(x.rec?x.res/x.rec:0)}</td></tr>`;
  $('#resTop').innerHTML=P.filter(x=>x.res>0).sort((a,b)=>b.res-a.res).slice(0,5).map(lin).join('')||'<tr><td colspan="5" class="mut">Sem vendas com custo cadastrado no mês.</td></tr>';
  $('#resPior').innerHTML=P.filter(x=>x.res<0).sort((a,b)=>a.res-b.res).slice(0,5).map(lin).join('')||'<tr><td colspan="5" class="ok">Nenhum produto com prejuízo no mês.</td></tr>';
@@ -849,7 +862,9 @@ function renderCompras(m){
 function renderApur(m){let a=apuracao(m);tabelaMeses('#apHead','#apBody',a.ms,a.linhas);window._apur=a;
  $('#sIcms').value=db.saldos.icms||'';$('#sPis').value=db.saldos.pis||'';$('#sCof').value=db.saldos.cofins||'';
  $('#exBody').innerHTML=db.extras.map((e,i)=>`<tr><td>${rotulo(e.month)}</td><td>${esc(e.desc)}</td><td class="n">${brl(e.base)}</td><td class="n">${brl(e.pis)}</td><td class="n">${brl(e.cof)}</td><td class="n">${brl(e.icms)}</td><td><button class="link" onclick="delExtra(${i})">Excluir</button></td></tr>`).join('')}
-function renderDre(m){let d=linhasDre(m);tabelaMeses('#dreHead','#dreBody',d.ms,d.linhas);window._dre=d}
+function renderDre(m){let v=db.config.visaoDre||'gerencial';$('#dreVisao').value=v;
+ $('#dreNota').innerHTML=v==='gerencial'?'<b>Visão gerencial (lucro real):</b> o CMV inclui o que foi pago por fora da nota. IRPJ e CSLL continuam calculados sobre o lucro fiscal, que é o que a empresa de fato recolhe. As duas últimas linhas mostram, para conferência, os números da DRE fiscal.':'<b>Visão fiscal / contábil:</b> só entra o que tem nota. O lucro aparece maior que o real porque o pago por fora não está no CMV — veja o resultado real na última linha ou mude para a visão gerencial.';
+ let d=linhasDre(m,v);tabelaMeses('#dreHead','#dreBody',d.ms,d.linhas);window._dre=d}
 function opcoesCat(sel){return `<option value="">— Sem categoria —</option><optgroup label="Entra na DRE">${CAT_DRE.map(c=>`<option ${c===sel?'selected':''}>${c}</option>`).join('')}</optgroup><optgroup label="Não entra na DRE">${CAT_FORA.map(c=>`<option ${c===sel?'selected':''}>${c}</option>`).join('')}</optgroup>`}
 function renderFin(m){
  let T=Object.values(db.bank).filter(t=>t.dt.startsWith(m)).sort((a,b)=>a.dt.localeCompare(b.dt)||a.valor-b.valor);
@@ -1072,6 +1087,7 @@ $('#fonteDre').onchange=()=>{db.config.fonteDre=$('#fonteDre').value;changed()};
 $('#cpgCsv').onclick=()=>csv('contas_a_pagar.csv',['Vencimento','Fornecedor','Descrição','Categoria no relatório','Documento','Valor','Situação','Pago em','Valor pago','No extrato','Categoria','Entra na DRE'],
  (window._apRows||[]).map(a=>[a.venc,a.forn,a.desc,a.catRel,a.doc,a.valor,situacaoAp(a),a.dpag,a.vpago,a.extrato?'Sim':'Não',a.cat,CAT_DRE.includes(a.cat)?'Sim':'Não']));
 $('#resXlsx').onclick=()=>baixar(`kemmax_resultados_${$('#month').value}.xlsx`,relatorioExcel(),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+$('#dreVisao').onchange=()=>{db.config.visaoDre=$('#dreVisao').value;changed()};
 $('#closeMonth').onclick=()=>{let m=$('#month').value;if(!db.closed.includes(m))db.closed.push(m);changed()};
 $('#openMonth').onclick=()=>{db.closed=db.closed.filter(x=>x!==$('#month').value);changed()};
 $('#month').onchange=()=>{let m=$('#month').value;$('#expMonth').value=$('#exMonth').value=m;render()};
@@ -1103,16 +1119,16 @@ function xlsx(abas){ // abas: [[nome,[linhas]]] — números viram células num�
   ...folhas.map((f,i)=>[`xl/worksheets/sheet${i+1}.xml`,f])];
  return zipar(arq)}
 function relatorioExcel(){
- let m=$('#month').value,R=resumoMeses(m),d=linhasDre(m),a=apuracao(m),{vendas,lancs}=derivar(),y=m.slice(0,4);
+ let m=$('#month').value,R=resumoMeses(m),a=apuracao(m),{vendas,lancs}=derivar(),y=m.slice(0,4);
  let tab=t=>[['Linha',...t.ms.map(rotulo),'Total'],...t.linhas.map(([r,v,tp])=>[r,...v,tp==='p'?v[0]:tp==='u'?v.at(-1):v.reduce((s,z)=>s+z,0)])];
  let g={};vendas.filter(v=>v.m.startsWith(y)&&v.m<=m).forEach(v=>{let x=g[v.sku+'|'+v.canal]=g[v.sku+'|'+v.canal]||{sku:v.sku,nome:v.nome,canal:v.canal,q:0,rec:0,imp:0,fees:0,frete:0,fulf:0,cmv:0,res:0,adic:0};
   for(let f of ['q','rec','imp','fees','frete','fulf','cmv','res','adic'])x[f]+=v[f]});
  let cred=f=>mesesAno(m).map(mm=>{let L=lancs.filter(x=>x.m===mm&&f(x));return [rotulo(mm),new Set(L.map(x=>x.k)).size,soma(L,'vc'),soma(L,'bpc'),soma(L,'icmsC'),soma(L,'pisC'),soma(L,'cofC'),soma(L,credito)]});
  let cab=['Mês','Documentos','Valor','Base PIS/COFINS','Crédito ICMS','Crédito PIS','Crédito COFINS','Total'];
  return xlsx([
-  ['Resumo mês a mês',[['Mês','Faturamento','Compras','Créd. ICMS','Créd. PIS','Créd. COFINS','ICMS a recolher','PIS a recolher','COFINS a recolher','DIFAL + FCP','Lucro líquido','Margem %','Resultado caixa'],
+  ['Resumo mês a mês',[['Mês','Faturamento','Compras','Créd. ICMS','Créd. PIS','Créd. COFINS','ICMS a recolher','PIS a recolher','COFINS a recolher','DIFAL + FCP','Lucro real','Margem real %','Lucro DRE fiscal'],
    ...R.map(r=>[rotulo(r.m),r.fat,r.compras,r.cIcms,r.cPis,r.cCof,r.icms,r.pis,r.cof,r.difal,r.liq,r.marg*100,r.caixa])]],
-  ['DRE',tab(d)],['Apuração ICMS PIS COFINS',tab(a)],
+  ['DRE gerencial (real)',tab(linhasDre(m,'gerencial'))],['DRE fiscal',tab(linhasDre(m,'fiscal'))],['Apuração ICMS PIS COFINS',tab(a)],
   ['Rentabilidade (ano)',[['SKU','Produto','Canal','Qtd','Venda','Impostos','Comissão/tarifas','Frete','Fulfillment','CMV DRE','Resultado DRE','Margem %','Pago adicional','Resultado financeiro'],
    ...Object.values(g).sort((p,q)=>q.res-p.res).map(x=>[x.sku,x.nome,x.canal,x.q,x.rec,x.imp,x.fees,x.frete,x.fulf,x.cmv,x.res,x.rec?x.res/x.rec*100:0,x.adic,x.res-x.adic])]],
   ['Créditos compras',[cab,...cred(x=>entradaNfe(x)&&COMPRAS.includes(x.nat))]],

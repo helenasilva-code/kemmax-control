@@ -110,6 +110,10 @@ def test_html_completo(tmp_path):
         assert "Mercado Livre" in page.inner_text("#rentChannel")
 
         page.click("text=DRE Mensal")
+        # visão gerencial (padrão): CMV real inclui o pago por fora (10 por unidade, 8 unidades líquidas)
+        assert _linha(page, "(−) CMV real", "2026-08") == pytest.approx(-480)
+        assert _linha(page, "= Lucro líquido real", "2026-08") == pytest.approx((511.89 - 100) * 0.76 - 80, abs=0.01)
+        page.select_option("#dreVisao", "fiscal")
         assert _linha(page, "= Receita líquida", "2026-08") == pytest.approx(1190.64, abs=0.01)
         assert _linha(page, "(−) CMV DRE", "2026-08") == pytest.approx(-400)
         assert _linha(page, "= Margem de contribuição", "2026-08") == pytest.approx(511.89, abs=0.01)
@@ -627,7 +631,8 @@ def test_html_resultados_e_excel(tmp_path):
         assert "Todos os produtos vendidos têm custo" in page.inner_text("#resPassos")
         ago = page.evaluate("window._res.find(r=>r.m==='2026-08')")
         assert ago["icms"] == pytest.approx(360 - 72 - 12 - 180)
-        assert ago["liq"] == pytest.approx((511.89) * 0.76, abs=0.01)
+        assert ago["caixa"] == pytest.approx((511.89) * 0.76, abs=0.01)          # lucro na DRE fiscal
+        assert ago["liq"] == pytest.approx((511.89) * 0.76 - 80, abs=0.01)       # lucro real (com pago por fora)
         assert "P1" in page.inner_text("#resTop")
         assert "Resolver" not in page.inner_text("#resAlertas")
 
@@ -636,12 +641,14 @@ def test_html_resultados_e_excel(tmp_path):
         arquivo = tmp_path / "rel.xlsx"
         dl.value.save_as(arquivo)
         wb = openpyxl.load_workbook(arquivo)
-        assert wb.sheetnames == ["Resumo mês a mês", "DRE", "Apuração ICMS PIS COFINS", "Rentabilidade (ano)",
-                                 "Créditos compras", "Créditos CT-e"]
+        assert wb.sheetnames == ["Resumo mês a mês", "DRE gerencial (real)", "DRE fiscal", "Apuração ICMS PIS COFINS",
+                                 "Rentabilidade (ano)", "Créditos compras", "Créditos CT-e"]
         resumo = wb["Resumo mês a mês"]
         linha_ago = [r for r in resumo.iter_rows(values_only=True) if r[0] == "Ago/26"][0]
         assert linha_ago[1] == pytest.approx(2000)
-        dre = {r[0]: r for r in wb["DRE"].iter_rows(values_only=True)}
+        dre = {r[0]: r for r in wb["DRE fiscal"].iter_rows(values_only=True)}
+        real = {r[0]: r for r in wb["DRE gerencial (real)"].iter_rows(values_only=True)}
+        assert real["= Lucro líquido real"][8] == pytest.approx(511.89 * 0.76 - 80, abs=0.01)
         assert dre["= Receita líquida"][8] == pytest.approx(1190.64, abs=0.01)
         assert wb["Créditos compras"]["E8"].value == pytest.approx(180)   # julho, crédito ICMS
         assert erros == []
