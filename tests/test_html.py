@@ -800,8 +800,8 @@ def test_html_kit():
         page.wait_for_function("window.document.querySelector('#month').options.length>0")
         page.click("#nav button[data-p=prod]")
         page.fill("#sku", "CX36WIREOBRA58A5")
-        page.fill("#kitUnit", "0.60"); page.fill("#kitQtd", "36")
-        assert page.input_value("#purchase") == "21.60"
+        page.fill("#kitUnit", "0.60"); page.fill("#kitFora", "0.10"); page.fill("#kitQtd", "36")
+        assert page.input_value("#purchase") == "21.60" and page.input_value("#outside") == "3.60"
         page.fill("#icmspct", "18")
         page.fill("#caixa", "1.57"); page.fill("#prepFull", "1.30")
         page.click("#addProd")
@@ -810,6 +810,7 @@ def test_html_kit():
         pc = (21.6 - icms) * 0.0925
         assert prod["purchase"] == pytest.approx(21.6) and prod["kitQtd"] == 36
         assert prod["cmvdre"] == pytest.approx(21.6 + 1.57 + 1.30 - icms - pc, abs=0.02)
+        assert prod["cmvf"] == pytest.approx(prod["cmvdre"] + 3.60)   # por fora só no financeiro, sem crédito
         page.click("#prodBody tr:has-text('CX36WIREOBRA58A5') >> text=Editar")
         assert page.input_value("#kitQtd") == "36" and "36 unidades" in page.inner_text("#kitInfo")
         assert erros == []
