@@ -117,7 +117,7 @@ td.n,th.n{text-align:right}tr.tot td{font-weight:700;background:#f8fafc}.link.de
 <details class="calc" open><summary>Créditos calculados automaticamente (ICMS, PIS e COFINS)</summary><div class="actions" style="margin-top:8px">
 <label>Alíquota ICMS %<input type="number" step=".01" id="icmspct" placeholder="ex.: 12"></label><label>Redução da base %<input type="number" step=".01" id="icmsred" placeholder="ex.: 26,67"></label><label>Carga efetiva<input id="icmscarga" disabled placeholder="—"></label>
 <label>PIS %<input type="number" step=".01" id="pisPct"></label><label>COFINS %<input type="number" step=".01" id="cofPct"></label><button class="btn gray" id="calcCred">Recalcular créditos</button></div>
-<p class="mut">Os créditos são preenchidos sozinhos enquanto você digita. Base: Compra/NF (+ IPI); se Compra/NF estiver vazia, usa CMV Financeiro − pago adicional − caixa de papelão − preparo e envio ao Full (o que não está na nota do produto). ICMS = base × carga efetiva; PIS e COFINS = (base − ICMS) × alíquota. Se você digitar um crédito à mão, ele é mantido. Se a nota já informa a carga (ex.: 8,8%), digite 8,8 na alíquota e deixe a redução em branco.</p></details>
+<p class="mut">Os créditos são preenchidos sozinhos enquanto você digita. Base: Compra/NF (+ IPI, só se marcado em Configuração); se Compra/NF estiver vazia, usa CMV Financeiro − pago adicional − caixa de papelão − preparo e envio ao Full (o que não está na nota do produto). ICMS = base × carga efetiva; PIS e COFINS = (base − ICMS) × alíquota. Se você digitar um crédito à mão, ele é mantido. Se a nota já informa a carga (ex.: 8,8%), digite 8,8 na alíquota e deixe a redução em branco.</p></details>
 <div id="prodMsg"></div></div>
 <div class="card"><div class="actions" style="margin-bottom:10px"><label>Buscar<input id="prodSearch" placeholder="SKU ou nome"></label><button class="btn gray" id="prodCsv">Exportar CSV</button></div>
 <div class="scroll"><table><thead><tr><th>SKU</th><th>Produto</th><th>Vigência</th><th class="n">Compra/NF</th><th class="n">Adicional</th><th class="n">Caixa + preparo Full</th><th class="n">Fulfillment</th><th class="n">CMV Financeiro</th><th class="n">Créd. ICMS</th><th class="n">Créd. PIS</th><th class="n">Créd. COFINS</th><th class="n">CMV DRE</th><th></th></tr></thead><tbody id="prodBody"></tbody></table></div></div></section>
@@ -224,7 +224,7 @@ td.n,th.n{text-align:right}tr.tot td{font-weight:700;background:#f8fafc}.link.de
 <div style="display:grid;gap:6px;margin-top:10px">
 <label class="chk"><input type="checkbox" id="cfgExDeb"> Excluir ICMS da base do PIS/COFINS nas vendas (STF Tema 69)</label>
 <label class="chk"><input type="checkbox" id="cfgExCred"> Excluir ICMS da base do crédito nas compras (Lei 14.592/2023)</label>
-<label class="chk"><input type="checkbox" id="cfgIpi"> Incluir IPI não recuperável na base do crédito</label>
+<label class="chk"><input type="checkbox" id="cfgIpi"> Incluir IPI não recuperável na base do crédito de PIS/COFINS (desmarcado = IPI fora da base, como a contabilidade apura)</label>
 <label class="chk"><input type="checkbox" id="cfgSt"> Incluir ICMS-ST na base do crédito (tema controverso)</label></div>
 <p class="mut">Mudou alguma regra? Salve: todos os documentos são recalculados na hora.</p></div>
 <div class="card"><h2>NCMs com redução da base de ICMS</h2>
@@ -252,7 +252,7 @@ let db=null, idb=null, saveTimer=null, versao=0, cache=null;
 const NCM_PADRAO=['8441.10.90','8440.10.90','8439.30.90','8420.10.10'].map(ncm=>({ncm,carga:8.8,cargaNNE:5.14}));
 const PARSER=2;
 const CNPJ_KEMMAX='48221981000123';
-function novoDb(){return {config:{cnpjs:[CNPJ_KEMMAX],cteBase:'integral',fonteDre:'extrato',visaoDre:'gerencial',pis:1.65,cofins:7.6,exDeb:true,exCred:true,ipi:true,st:false,ncmReducao:NCM_PADRAO.map(x=>({...x}))},
+function novoDb(){return {config:{cnpjs:[CNPJ_KEMMAX],cteBase:'integral',fonteDre:'extrato',visaoDre:'gerencial',pis:1.65,cofins:7.6,exDeb:true,exCred:true,ipi:false,ipiV2:true,st:false,ncmReducao:NCM_PADRAO.map(x=>({...x}))},
  docs:{},canceled:{},products:[],channels:[],channelMap:CANAIS_PADRAO.map(([name,cnpj])=>({name,cnpj})),
  cteOverride:{},trash:{},bank:{},bankRules:null,ap:{},ar:{},saldoConta:0,imports:[],expenses:[],extras:[],closed:[],saldos:{icms:0,pis:0,cofins:0}}}
 
@@ -265,7 +265,7 @@ const idbPut=(k,v)=>new Promise((res,rej)=>{let tx=idb.transaction('state','read
 async function saveNow(){clearTimeout(saveTimer);if(idb)await idbPut(K,db)}
 function changed(){versao++;cache=null;clearTimeout(saveTimer);saveTimer=setTimeout(saveNow,200);render()}
 async function loadDB(){await openDB();let x=await idbGet(K);db=Object.assign(novoDb(),x||{});
- db.config=Object.assign(novoDb().config,db.config||{});db.products=(db.products||[]).map(calcProduto);if(!Array.isArray(db.bankRules))db.bankRules=REGRAS_BANCO.map(([txt,cat,sinal])=>({txt,cat,sinal}));if(!Array.isArray(db.config.ncmReducao))db.config.ncmReducao=NCM_PADRAO.map(x=>({...x}));
+ db.config=Object.assign(novoDb().config,db.config||{});if(!db.config.ipiV2){db.config.ipi=false;db.config.ipiV2=true}db.products=(db.products||[]).map(calcProduto);if(!Array.isArray(db.bankRules))db.bankRules=REGRAS_BANCO.map(([txt,cat,sinal])=>({txt,cat,sinal}));if(!Array.isArray(db.config.ncmReducao))db.config.ncmReducao=NCM_PADRAO.map(x=>({...x}));
  if(!x){ // traz cadastros da V3, se existirem
   try{let v3=await idbGet('kemmax_gestao_lr_v3');if(v3){db.products=(v3.products||[]).map(p=>calcProduto(p));
    db.channels=v3.channels||[];db.expenses=(v3.expenses||[]).filter(e=>e.cat);db.closed=v3.closed||[]}}catch(e){}

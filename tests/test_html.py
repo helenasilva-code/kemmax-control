@@ -818,12 +818,42 @@ def test_html_kit():
         prod = page.evaluate("db.products[0]")
         nf, ipi = 15.54, 0.50
         icms = nf * 0.18
-        pc = (nf + ipi - icms) * 0.0925
+        pc = (nf - icms) * 0.0925   # IPI fora da base do PIS/COFINS (padrão)
         assert prod["purchase"] == pytest.approx(nf) and prod["kitQtd"] == 36 and prod["kitCompra"] == 50
         assert prod["cmvdre"] == pytest.approx(nf + ipi + 1.57 + 1.30 - icms - pc, abs=0.02)
-        assert prod["cmvdre"] == pytest.approx(14.89, abs=0.02)
+        assert prod["cmvdre"] == pytest.approx(14.93, abs=0.02)
         assert prod["cmvf"] == pytest.approx(prod["cmvdre"] + 6.16)   # por fora só no financeiro, sem crédito
         page.click("#prodBody tr:has-text('CX36WIREOBRA58A5') >> text=Editar")
         assert page.input_value("#kitQtd") == "36" and "36 unidades" in page.inner_text("#kitInfo")
+        assert erros == []
+        browser.close()
+
+
+def test_html_pouch_ipi_fora_da_base_pis_cofins():
+    """Polaseal: 37,50 com IPI 9,75% -> NF 34,17 + IPI 3,33; ICMS 18% = 6,15; PIS/COFINS 9,25% sobre 28,02 = 2,59; CMV 28,76."""
+    chromium = glob.glob("/opt/pw-browsers/chromium*/chrome-linux*/chrome")
+    with sync_api.sync_playwright() as p:
+        browser = p.chromium.launch(executable_path=chromium[0] if chromium else None)
+        page = browser.new_page()
+        erros = []
+        page.on("pageerror", lambda e: erros.append(str(e)))
+        page.goto("file://" + HTML)
+        page.wait_for_function("window.document.querySelector('#month').options.length>0")
+        assert page.evaluate("db.config.ipi") is False
+        page.click("#nav button[data-p=prod]")
+        page.fill("#sku", "POLA405")
+        page.fill("#purchase", "34.17"); page.fill("#ipi", "3.33"); page.fill("#icmspct", "18")
+        page.click("#addProd")
+        prod = page.evaluate("db.products[0]")
+        assert prod["icms"] == pytest.approx(6.15, abs=0.01)
+        assert prod["pis"] + prod["cof"] == pytest.approx(2.59, abs=0.01)
+        assert prod["cmvdre"] == pytest.approx(28.76, abs=0.01)
+        # marcando a opção, o IPI volta para a base (crédito 2,90; CMV 28,45)
+        page.evaluate("db.config.ipi=true")
+        page.fill("#sku", "POLA405B")
+        page.fill("#purchase", "34.17"); page.fill("#ipi", "3.33"); page.fill("#icmspct", "18")
+        page.click("#addProd")
+        prod = page.evaluate("db.products.find(x=>x.sku==='POLA405B')")
+        assert prod["cmvdre"] == pytest.approx(28.45, abs=0.01)
         assert erros == []
         browser.close()
