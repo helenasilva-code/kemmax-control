@@ -113,7 +113,7 @@ td.n,th.n{text-align:right}tr.tot td{font-weight:700;background:#f8fafc}.link.de
 </div>
 <div class="kitbox"><b>Kit (opcional)</b> — compra por unidade e vende em kit? Digite os valores da embalagem em que você compra (ou de 1 unidade, deixando “Unidades na embalagem de compra” = 1) e o sistema calcula Compra/NF, IPI e Pago adicional do item vendido:
 <div class="actions" style="margin-top:6px"><label>Valor na NF (embalagem de compra)<input type="number" step=".0001" id="kitUnit" placeholder="ex.: 21,58"></label><label>IPI %<input type="number" step=".01" id="kitIpi" placeholder="ex.: 3,25"></label><label>Pago por fora (embalagem de compra)<input type="number" step=".0001" id="kitFora" placeholder="ex.: 8,55"></label><label>Unidades na embalagem de compra<input type="number" step="1" id="kitCompra" placeholder="ex.: 50"></label><label>Unidades por item vendido<input type="number" step="1" id="kitQtd" placeholder="ex.: 36"></label><span class="mut" id="kitInfo"></span></div></div>
-<p class="mut">CMV Financeiro e CMV DRE ficam separados. O valor pago adicional não gera crédito fiscal automaticamente. Deixe CMV DRE e CMV Financeiro em branco para o sistema calcular: CMV DRE = Compra/NF + IPI + caixa de papelão + preparo e envio ao Full + outros − créditos; CMV Financeiro = CMV DRE + pago adicional. Caixa, preparo e envio ao Full deixam o produto pronto para vender: entram no custo, sem crédito. Fulfillment / embalagem (por venda) é despesa de venda: não entra no CMV e é descontado em cada unidade vendida.</p>
+<p class="mut">CMV Financeiro e CMV DRE ficam separados. O valor pago adicional não gera crédito fiscal automaticamente. Deixe CMV DRE e CMV Financeiro em branco para o sistema calcular: CMV DRE = Compra/NF + IPI + caixa de papelão + preparo e envio ao Full + outros − créditos; CMV Financeiro = tudo o que sai do caixa pelo produto (Compra/NF + IPI + caixa + preparo + outros + pago adicional), sem descontar os créditos. O lucro usa CMV DRE + pago adicional, porque os créditos já abatem os impostos a pagar. Caixa, preparo e envio ao Full deixam o produto pronto para vender: entram no custo, sem crédito. Fulfillment / embalagem (por venda) é despesa de venda: não entra no CMV e é descontado em cada unidade vendida.</p>
 <details class="calc" open><summary>Créditos calculados automaticamente (ICMS, PIS e COFINS)</summary><div class="actions" style="margin-top:8px">
 <label>Alíquota ICMS %<input type="number" step=".01" id="icmspct" placeholder="ex.: 12"></label><label>Redução da base %<input type="number" step=".01" id="icmsred" placeholder="ex.: 26,67"></label><label>Carga efetiva<input id="icmscarga" disabled placeholder="—"></label>
 <label>PIS %<input type="number" step=".01" id="pisPct"></label><label>COFINS %<input type="number" step=".01" id="cofPct"></label><button class="btn gray" id="calcCred">Recalcular créditos</button></div>
@@ -501,7 +501,7 @@ function classificarCte(d){
 function calcProduto(p){p=Object.assign({},p);for(let f of ['purchase','ipi','outside','pack','other','caixa','prep','icms','pis','cof'])p[f]=Number(p[f])||0;
  p.cmvdreManual=Number(p.cmvdreManual)||0;p.cmvfManual=Number(p.cmvfManual)||0;
  p.cmvdre=p.cmvdreManual||(p.cmvfManual?p.cmvfManual-p.outside-p.icms-p.pis-p.cof:p.purchase+p.ipi+p.caixa+p.prep+p.other-p.icms-p.pis-p.cof);
- p.cmvf=p.cmvfManual||(p.cmvdre+p.outside);return p}
+ p.cmvf=p.cmvfManual||(p.cmvdreManual?p.cmvdreManual+p.icms+p.pis+p.cof+p.outside:p.purchase+p.ipi+p.caixa+p.prep+p.other+p.outside);return p}
 function produtoVigente(sku,dt){sku=String(sku||'').trim().toUpperCase();
  let c=db.products.filter(p=>String(p.sku).trim().toUpperCase()===sku).sort((a,b)=>String(a.vig).localeCompare(String(b.vig)));
  if(!c.length)return null;let v=c.filter(p=>!p.vig||p.vig<=dt);return v.length?v.at(-1):c[0]}
@@ -675,7 +675,7 @@ function linhasDre(ate,visao){
   ...cats.map((c,i)=>['(−) '+c,g(d=>-d.adm[i][1])]),['(+) Créditos extras',g(d=>d.creditosExtras)],['= Resultado operacional',g(d=>d.op)],
   ['(+) Receitas financeiras',g(d=>d.recFin)],['(−) PIS/COFINS s/ receitas financeiras',g(d=>-d.pcFin)],['(−) Despesas financeiras',g(d=>-d.despFin)],
   ['= Resultado antes IRPJ/CSLL',g(d=>d.lair)],['(−) CSLL 9%',g(d=>-d.csll)],['(−) IRPJ 15% + adicional 10%',g(d=>-d.irpj)],['= Lucro líquido (DRE)',g(d=>d.liq)],
-  ['(−) Pago adicional (CMV Financeiro − CMV DRE)',g(d=>-d.adic)],['= Resultado financeiro (caixa)',g(d=>d.caixa)]]}}
+  ['(−) Pago por fora (PF)',g(d=>-d.adic)],['= Resultado financeiro (caixa)',g(d=>d.caixa)]]}}
 
 function linhasDreGerencial(ms,D,g){
  let cats=['ADS / Publicidade','Pessoal e pró-labore','Despesas fixas','Serviços','Outras despesas'];

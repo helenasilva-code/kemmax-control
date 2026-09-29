@@ -678,7 +678,7 @@ def test_html_editar_produto(tmp_path):
         page.click("#addProd")
         prods = page.evaluate("db.products.map(p=>[p.sku,p.vig,Math.round(p.cmvdre*100)/100,Math.round(p.cmvf*100)/100])")
         # créditos automáticos de PIS 1,65% + COFINS 7,6% (sem ICMS informado)
-        assert prods == [["A1", "", 9.07, 9.07], ["B2", "2026-09-01", 22.69, 27.69]]
+        assert prods == [["A1", "", 9.07, 10], ["B2", "2026-09-01", 22.69, 30]]   # financeiro = compra + por fora, sem créditos
         assert page.inner_text("#addProd") == "Salvar vigência" and "Alterado: B2" in page.inner_text("#prodMsg")
 
         # CMV digitado vale mais que o calculado
@@ -786,7 +786,7 @@ def test_html_custos_full():
         prod = page.evaluate("db.products[0]")
         creditos = prod["icms"] + prod["pis"] + prod["cof"]
         assert prod["cmvdre"] == pytest.approx(300 + 4.5 + 3.2 - creditos)
-        assert prod["cmvf"] == pytest.approx(prod["cmvdre"])
+        assert prod["cmvf"] == pytest.approx(300 + 4.5 + 3.2)   # financeiro = o que foi pago, sem créditos
         assert "R$ 7,70" in page.inner_text("#prodBody").replace("\xa0", " ")
 
         # só o total pago (CMV Financeiro): caixa e preparo saem da base dos créditos
@@ -822,7 +822,7 @@ def test_html_kit():
         assert prod["purchase"] == pytest.approx(nf) and prod["kitQtd"] == 36 and prod["kitCompra"] == 50
         assert prod["cmvdre"] == pytest.approx(nf + ipi + 1.57 + 1.30 - icms - pc, abs=0.02)
         assert prod["cmvdre"] == pytest.approx(14.93, abs=0.02)
-        assert prod["cmvf"] == pytest.approx(prod["cmvdre"] + 6.16)   # por fora só no financeiro, sem crédito
+        assert prod["cmvf"] == pytest.approx(nf + ipi + 1.57 + 1.30 + 6.16)   # financeiro = tudo o que foi pago
         page.click("#prodBody tr:has-text('CX36WIREOBRA58A5') >> text=Editar")
         assert page.input_value("#kitQtd") == "36" and "36 unidades" in page.inner_text("#kitInfo")
         assert erros == []
@@ -848,6 +848,7 @@ def test_html_pouch_ipi_fora_da_base_pis_cofins():
         assert prod["icms"] == pytest.approx(6.15, abs=0.01)
         assert prod["pis"] + prod["cof"] == pytest.approx(2.59, abs=0.01)
         assert prod["cmvdre"] == pytest.approx(28.76, abs=0.01)
+        assert prod["cmvf"] == pytest.approx(37.50, abs=0.01)
         # marcando a opção, o IPI volta para a base (crédito 2,90; CMV 28,45)
         page.evaluate("db.config.ipi=true")
         page.fill("#sku", "POLA405B")
